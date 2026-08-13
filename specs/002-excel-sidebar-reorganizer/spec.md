@@ -17,6 +17,13 @@ This specification strictly adheres to the project constitution:
 
 ---
 
+## Clarifications
+
+### Session 2026-08-13
+- Q: How should nested hierarchical tree nodes be represented when exporting horizontally across Row 1 columns? → A: Option A - Export full backslash path strings (e.g., `Root\Folder\Item`) for each leaf node into sequential Row 1 cells.
+
+---
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Multi-Sheet Header Extraction & Sidebar View (Priority: P1)
@@ -58,11 +65,11 @@ As a data manager, I want to export my reconstructed tree structure back into th
 
 **Why this priority**: Completes the round-trip workflow, persisting the reorganized structure back into Excel format.
 
-**Independent Test**: Can be tested by building a tree, triggering export, and inspecting the generated `.xlsx` file to confirm that Row 1 contains the ordered tree element labels across columns A, B, C... under the original sheet name.
+**Independent Test**: Can be tested by building a tree, triggering export, and inspecting the generated `.xlsx` file to confirm that Row 1 contains the ordered tree leaf path strings across columns A, B, C... under the original sheet name.
 
 **Acceptance Scenarios**:
 
-1. **Given** a reconstructed tree structure for an active sheet, **When** the user exports the project to Excel, **Then** the system writes the ordered tree node labels sequentially into Row 1 (horizontally across columns A, B, C...) of that sheet.
+1. **Given** a reconstructed tree structure for an active sheet, **When** the user exports the project to Excel, **Then** the system writes the full backslash path string (e.g., `Root\Folder\Item`) for each leaf node sequentially into Row 1 (horizontally across columns A, B, C...) of that sheet.
 2. **Given** a multi-sheet workbook, **When** exporting, **Then** the original sheet name is preserved, and other unedited sheets remain untouched.
 
 ---
@@ -85,7 +92,7 @@ As a data manager, I want to export my reconstructed tree structure back into th
 - **FR-003**: System MUST extract, deduplicate, and display all unique non-empty headers from Row 1 of the selected sheet alphabetically in a sidebar.
 - **FR-004**: System MUST provide a real-time text input in the sidebar to filter the displayed headers dynamically as the user types.
 - **FR-005**: System MUST support non-destructive drag-and-drop, allowing headers to be dragged from the sidebar into the main tree constructor while keeping the dragged item in the sidebar for reuse.
-- **FR-006**: System MUST write the reconstructed tree nodes sequentially into Row 1 (horizontally across columns A, B, C...) of the corresponding sheet upon export, preserving the original sheet name.
+- **FR-006**: System MUST write the full backslash path string (e.g., `Root\Folder\Item`) for each leaf node sequentially into Row 1 (horizontally across columns A, B, C...) of the corresponding sheet upon export, preserving the original sheet name.
 
 ### Key Entities
 
@@ -102,7 +109,7 @@ As a data manager, I want to export my reconstructed tree structure back into th
 - **SC-001**: Sheet switching updates the active sheet and sidebar header list in under 500 milliseconds.
 - **SC-002**: Sidebar header extraction, deduplication, and alphabetical sorting for up to 1,000 cells complete in under 300 milliseconds.
 - **SC-003**: Real-time sidebar search filtering updates the visible header list in under 100 milliseconds per keystroke.
-- **SC-004**: 100% of exported files write tree elements accurately into Row 1 across columns without modifying non-target rows or unedited sheets.
+- **SC-004**: 100% of exported files write leaf path strings accurately into Row 1 across columns without modifying non-target rows or unedited sheets.
 
 ---
 
