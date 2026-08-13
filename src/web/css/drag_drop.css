@@ -1,0 +1,35 @@
+/* Three-Zone Drag & Drop Highlight Styles */
+
+.tree-node-content.dragging {
+    opacity: 0.4;
+    border: 1px dashed var(--color-primary);
+}
+
+/* Zone 1: BEFORE_SIBLING (Top 25%) */
+.tree-node-content.drop-zone-before {
+    border-top: 3px solid var(--color-primary) !important;
+    background-color: rgba(56, 189, 248, 0.15) !important;
+}
+
+/* Zone 2: AFTER_SIBLING (Bottom 25%) */
+.tree-node-content.drop-zone-after {
+    border-bottom: 3px solid var(--color-primary) !important;
+    background-color: rgba(56, 189, 248, 0.15) !important;
+}
+
+/* Zone 3: NEST_CHILD (Center 50%) */
+.tree-node-content.drop-zone-inside {
+    border: 2px dashed var(--color-success) !important;
+    background-color: rgba(52, 211, 153, 0.15) !important;
+}
+
+/* Prohibited Target Feedback */
+.tree-node-content.drop-prohibited,
+body.drag-prohibited {
+    cursor: not-allowed !important;
+}
+
+.tree-node-content.drop-prohibited {
+    border: 2px dashed var(--color-danger) !important;
+    background-color: rgba(244, 63, 94, 0.15) !important;
+}

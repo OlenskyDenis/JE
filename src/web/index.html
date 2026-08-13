@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Hierarchy Creator</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/drag_drop.css">
+    <!-- Eel websocket wrapper client -->
+    <script type="text/javascript" src="/eel.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Toolbar -->
+        <header class="app-header">
+            <div class="brand">
+                <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                </svg>
+                <h1>Database Hierarchy Creator</h1>
+            </div>
+            <div class="toolbar-actions">
+                <button id="btnAddRoot" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                    Add Root Node
+                </button>
+                <button id="btnImportExcel" class="btn btn-secondary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Import Excel
+                </button>
+                <button id="btnExportExcel" class="btn btn-secondary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    Export Excel
+                </button>
+                <button id="btnRefresh" class="btn btn-icon" title="Refresh Tree">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace Grid -->
+        <main class="workspace-main">
+            <!-- Left Panel: Interactive Tree Canvas -->
+            <section class="panel tree-panel">
+                <div class="panel-header">
+                    <h2>Hierarchy Constructor Workspace</h2>
+                    <span class="badge-count" id="nodeCountBadge">0 Nodes</span>
+                </div>
+                <div class="panel-body" id="treeContainer">
+                    <div id="treeEmptyState" class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                        <p>Workspace is empty</p>
+                        <small>Click "Add Root Node" or "Import Excel" to construct your hierarchy.</small>
+                    </div>
+                    <div id="treeView" class="tree-root-container"></div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Path Preview & Inspection -->
+            <section class="panel path-panel">
+                <div class="panel-header">
+                    <h2>Leaf Node Absolute Paths</h2>
+                    <span class="badge-count" id="pathCountBadge">0 Paths</span>
+                </div>
+                <div class="panel-body">
+                    <div id="pathList" class="path-list-container">
+                        <div class="empty-state">
+                            <p>No leaf paths generated yet</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Toast Notification Container -->
+        <div id="toastContainer" class="toast-container"></div>
+
+        <!-- Add Node Modal -->
+        <div id="nodeModal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Create Node</h3>
+                    <button id="modalClose" class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="inputNodeName">Node Name</label>
+                        <input type="text" id="inputNodeName" class="form-control" placeholder="e.g. Finance, Report_2026" autofocus>
+                    </div>
+                    <div class="form-group">
+                        <label>Node Type</label>
+                        <div class="radio-group">
+                            <label class="radio-card">
+                                <input type="radio" name="nodeType" value="container" checked>
+                                <span class="radio-label">
+                                    <strong>Folder / Container</strong>
+                                    <small>Can contain sub-folders and child items</small>
+                                </span>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="nodeType" value="leaf">
+                                <span class="radio-label">
+                                    <strong>Leaf Item</strong>
+                                    <small>Terminal data node in hierarchy</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnModalCancel" class="btn btn-secondary">Cancel</button>
+                    <button id="btnModalSubmit" class="btn btn-primary">Create Node</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Input Helper for Excel Import -->
+        <input type="file" id="excelFileInput" accept=".xlsx" style="display:none">
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="js/tree_renderer.js"></script>
+    <script src="js/drag_drop.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EelBridgeRPCContracts",
+  "description": "RPC contract between Eel Python backend and JavaScript frontend UI",
+  "methods": {
+    "get_workspace_tree": {
+      "description": "Fetches the complete multi-root hierarchy forest model as JSON for UI rendering.",
+      "parameters": {},
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "roots": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/NodeDTO" }
+          }
+        }
+      }
+    },
+    "add_node": {
+      "description": "Adds a new node under a specified parent (or as a new root node if parent_id is null).",
+      "parameters": {
+        "parent_id": { "type": ["string", "null"] },
+        "name": { "type": "string" },
+        "is_container": { "type": "boolean" }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "node": { "$ref": "#/definitions/NodeDTO" },
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "move_node": {
+      "description": "Moves a node to a target parent node with zone-based positioning (BEFORE_SIBLING, AFTER_SIBLING, NEST_CHILD). Validates cycle prevention.",
+      "parameters": {
+        "node_id": { "type": "string" },
+        "target_node_id": { "type": "string" },
+        "zone": { "type": "string", "enum": ["BEFORE_SIBLING", "AFTER_SIBLING", "NEST_CHILD"] }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "rejection_reason": { "type": "string" },
+          "updated_tree": { "$ref": "#/definitions/NodeDTO" }
+        }
+      }
+    },
+    "delete_node": {
+      "description": "Deletes a node and its descendants from the workspace.",
+      "parameters": {
+        "node_id": { "type": "string" }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" }
+        }
+      }
+    },
+    "import_excel": {
+      "description": "Parses an Excel (.xlsx) file, reading Row 1 / Cell A1 of each sheet into the hierarchy forest.",
+      "parameters": {
+        "file_path": { "type": "string" }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "imported_count": { "type": "integer" },
+          "roots": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/NodeDTO" }
+          },
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "export_excel": {
+      "description": "Exports the current workspace forest into an Excel (.xlsx) file with one element per cell per row.",
+      "parameters": {
+        "file_path": { "type": "string" }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "exported_paths": { "type": "integer" },
+          "error": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "NodeDTO": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "is_container": { "type": "boolean" },
+        "absolute_path": { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/NodeDTO" }
+        }
+      },
+      "required": ["id", "name", "is_container", "absolute_path", "children"]
+    }
+  }
+}
