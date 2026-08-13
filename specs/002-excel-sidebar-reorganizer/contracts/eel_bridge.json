@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Eel Bridge RPC API Contract for Excel Sidebar Reorganizer",
+  "description": "Defines Eel exposed Python functions and expected JSON data payload schemas for frontend-backend communication.",
+  "endpoints": [
+    {
+      "name": "import_excel_file",
+      "description": "Imports an Excel file, reads sheet names, and returns headers for the first sheet.",
+      "parameters": {
+        "file_path": {
+          "type": "string",
+          "description": "Absolute path to the imported .xlsx file"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "file_path": { "type": "string" },
+          "sheets": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "active_sheet": { "type": "string" },
+          "headers": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "error": { "type": "string" }
+        },
+        "required": ["success"]
+      }
+    },
+    {
+      "name": "switch_active_sheet",
+      "description": "Switches active sheet and returns its unique sorted Row 1 headers.",
+      "parameters": {
+        "sheet_name": {
+          "type": "string",
+          "description": "Target sheet name to switch to"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "sheet_name": { "type": "string" },
+          "headers": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "error": { "type": "string" }
+        },
+        "required": ["success"]
+      }
+    },
+    {
+      "name": "export_reorganized_row1",
+      "description": "Exports tree structure as backslash leaf paths into Row 1 horizontally across columns for the active sheet.",
+      "parameters": {
+        "sheet_name": { "type": "string" },
+        "tree_data": {
+          "type": "array",
+          "description": "Hierarchical JSON array representing constructed forest/tree nodes"
+        },
+        "output_path": { "type": "string" }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "column_count": { "type": "integer" },
+          "output_path": { "type": "string" },
+          "error": { "type": "string" }
+        },
+        "required": ["success"]
+      }
+    }
+  ]
+}
