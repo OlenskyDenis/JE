@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Hierarchy Creator</title>
+    <title>Database Hierarchy Creator & Excel Header Reorganizer</title>
     <!-- Modern Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,7 +43,7 @@
         </header>
 
         <!-- Main Workspace Grid -->
-        <main class="workspace-main">
+        <main class="workspace-main three-column-layout">
             <!-- Left Panel: Interactive Tree Canvas -->
             <section class="panel tree-panel">
                 <div class="panel-header">
@@ -54,13 +54,13 @@
                     <div id="treeEmptyState" class="empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
                         <p>Workspace is empty</p>
-                        <small>Click "Add Root Node" or "Import Excel" to construct your hierarchy.</small>
+                        <small>Click "Add Root Node" or drag headers from the sidebar catalog to build your structure.</small>
                     </div>
                     <div id="treeView" class="tree-root-container"></div>
                 </div>
             </section>
 
-            <!-- Right Panel: Path Preview & Inspection -->
+            <!-- Middle Panel: Path Preview & Inspection -->
             <section class="panel path-panel">
                 <div class="panel-header">
                     <h2>Leaf Node Absolute Paths</h2>
@@ -72,6 +72,34 @@
                             <p>No leaf paths generated yet</p>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Excel Header Catalog Sidebar (Feature 002) -->
+            <section class="panel sidebar-panel">
+                <div class="panel-header">
+                    <h2>Excel Header Catalog</h2>
+                    <span class="badge-count" id="headerCountBadge">0 Headers</span>
+                </div>
+                <div class="sidebar-controls">
+                    <div class="form-group">
+                        <label for="sheetSelector">Sheet Manager</label>
+                        <select id="sheetSelector" class="form-control">
+                            <option value="">No Excel file loaded</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sidebarSearch">Search Headers</label>
+                        <input type="text" id="sidebarSearch" class="form-control" placeholder="Filter headers in real-time..." disabled>
+                    </div>
+                </div>
+                <div class="panel-body sidebar-body">
+                    <div id="sidebarEmptyState" class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <p>No headers loaded</p>
+                        <small>Click "Import Excel" to extract Row 1 headers from any sheet.</small>
+                    </div>
+                    <div id="sidebarHeaderList" class="sidebar-header-list hidden"></div>
                 </div>
             </section>
         </main>

@@ -8,8 +8,9 @@ import src.app.eel_bridge as bridge
 
 
 def setup_function():
-    """Reset global workspace forest before each test."""
+    """Reset global workspace forest and file session before each test."""
     bridge.forest.root_nodes.clear()
+    bridge.current_file_path = None
 
 
 def test_eel_add_and_get_workspace_tree():
@@ -62,6 +63,52 @@ def test_eel_import_export_excel():
         assert imp_res["success"] is True
         assert len(imp_res["roots"]) == 1
         assert imp_res["roots"][0]["name"] == "Root"
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_eel_sidebar_reorganizer_rpc_flow():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        # Create Excel file with 2 sheets
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = "SheetA"
+        ws1.cell(row=1, column=1, value=" Header 2 ")
+        ws1.cell(row=1, column=2, value="Header 1")
+
+        ws2 = wb.create_sheet(title="SheetB")
+        ws2.cell(row=1, column=1, value="Category")
+        wb.save(tmp_path)
+        wb.close()
+
+        # 1. Test import_excel_file
+        res_import = bridge.import_excel_file(tmp_path)
+        assert res_import["success"] is True
+        assert res_import["sheets"] == ["SheetA", "SheetB"]
+        assert res_import["active_sheet"] == "SheetA"
+        assert res_import["headers"] == ["Header 1", "Header 2"]  # sorted
+
+        # 2. Test switch_active_sheet
+        res_switch = bridge.switch_active_sheet("SheetB")
+        assert res_switch["success"] is True
+        assert res_switch["sheet_name"] == "SheetB"
+        assert res_switch["headers"] == ["Category"]
+
+        # 3. Test export_reorganized_row1
+        leaf_paths = ["Root\\Folder\\ItemA", "Root\\Folder\\ItemB"]
+        res_export = bridge.export_reorganized_row1("SheetA", leaf_paths, tmp_path)
+        assert res_export["success"] is True
+        assert res_export["column_count"] == 2
+
+        # Verify exported file
+        wb_check = openpyxl.load_workbook(tmp_path)
+        assert wb_check["SheetA"].cell(row=1, column=1).value == "Root\\Folder\\ItemA"
+        assert wb_check["SheetA"].cell(row=1, column=2).value == "Root\\Folder\\ItemB"
+        wb_check.close()
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
