@@ -7,6 +7,7 @@ from src.hierarchy_lib.models.composite import CompositeNode
 from src.hierarchy_lib.models.leaf import LeafNode
 from src.hierarchy_lib.services.forest import WorkspaceForest
 from src.hierarchy_lib.adapters.excel_adapter import ExcelHierarchyAdapter
+from src.hierarchy_lib.services.dialog_service import FileDialogService
 
 # Global active workspace forest instance and active file session
 forest = WorkspaceForest()
@@ -132,7 +133,7 @@ def export_excel(file_path: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-# New Endpoints for Feature 002: Excel Sidebar Reorganizer
+# Endpoints for Feature 002: Excel Sidebar Reorganizer
 
 @eel.expose
 def import_excel_file(file_path: str) -> Dict[str, Any]:
@@ -202,3 +203,17 @@ def export_reorganized_row1(sheet_name: str, leaf_paths: List[str], output_path:
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# Endpoints for Feature 003: Native Desktop File Dialogs
+
+@eel.expose
+def open_file_dialog() -> Dict[str, Any]:
+    """Opens a native desktop OS file selection dialog for .xlsx files."""
+    return FileDialogService.ask_open_file()
+
+
+@eel.expose
+def save_file_dialog(default_name: str = "reorganized_headers_export.xlsx") -> Dict[str, Any]:
+    """Opens a native desktop OS save file dialog for choosing destination directory and filename."""
+    return FileDialogService.ask_save_file(default_name=default_name)

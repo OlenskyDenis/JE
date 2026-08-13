@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Eel Bridge RPC API Contract for Native Desktop File Dialogs",
+  "description": "Defines Eel exposed RPC endpoints for native OS file dialog operations.",
+  "endpoints": [
+    {
+      "name": "open_file_dialog",
+      "description": "Opens a native OS file picker dialog filtered for Excel .xlsx files.",
+      "parameters": {},
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "cancelled": { "type": "boolean" },
+          "file_path": {
+            "type": ["string", "null"],
+            "description": "Selected absolute file path or null if cancelled"
+          },
+          "error": { "type": ["string", "null"] }
+        },
+        "required": ["success", "cancelled"]
+      }
+    },
+    {
+      "name": "save_file_dialog",
+      "description": "Opens a native OS save file dialog for choosing destination directory and filename.",
+      "parameters": {
+        "default_name": {
+          "type": "string",
+          "description": "Default output filename (e.g. reorganized_headers_export.xlsx)"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "cancelled": { "type": "boolean" },
+          "file_path": {
+            "type": ["string", "null"],
+            "description": "Chosen destination file path or null if cancelled"
+          },
+          "error": { "type": ["string", "null"] }
+        },
+        "required": ["success", "cancelled"]
+      }
+    }
+  ]
+}
