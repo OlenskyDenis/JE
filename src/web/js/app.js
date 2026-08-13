@@ -1,6 +1,7 @@
 /**
  * Main Application Module connecting Eel RPC backend with HTML5 Frontend.
- * Includes Excel Header Catalog Sidebar & Sheet Manager (Feature 002).
+ * Includes Excel Header Catalog Sidebar, Sheet Manager (Feature 002),
+ * and Native OS File Dialogs for Import/Export (Feature 003).
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -47,18 +48,27 @@ const App = {
         document.getElementById('btnAddRoot').addEventListener('click', () => this.openAddModal(null, "Add Root Node"));
         document.getElementById('btnRefresh').addEventListener('click', () => this.refreshWorkspace());
 
-        document.getElementById('btnImportExcel').addEventListener('click', () => {
-            const path = prompt("Enter the absolute file path of the Excel (.xlsx) file to import:");
-            if (path && path.trim()) {
-                this.handleImportExcelFile(path.trim());
+        // Feature 003: Native OS Open File Dialog for Excel Import
+        document.getElementById('btnImportExcel').addEventListener('click', async () => {
+            try {
+                const dialogRes = await eel.open_file_dialog()();
+                if (dialogRes && dialogRes.success && !dialogRes.cancelled && dialogRes.file_path) {
+                    this.handleImportExcelFile(dialogRes.file_path);
+                }
+            } catch (err) {
+                this.showToast("RPC Error opening file dialog: " + err, "error");
             }
         });
 
-        document.getElementById('btnExportExcel').addEventListener('click', () => {
-            const defaultName = "reorganized_headers_export.xlsx";
-            const path = prompt("Enter output Excel (.xlsx) file path to save:", defaultName);
-            if (path && path.trim()) {
-                this.handleExportReorganizedRow1(path.trim());
+        // Feature 003: Native OS Save File Dialog for Excel Export
+        document.getElementById('btnExportExcel').addEventListener('click', async () => {
+            try {
+                const dialogRes = await eel.save_file_dialog("reorganized_headers_export.xlsx")();
+                if (dialogRes && dialogRes.success && !dialogRes.cancelled && dialogRes.file_path) {
+                    this.handleExportReorganizedRow1(dialogRes.file_path);
+                }
+            } catch (err) {
+                this.showToast("RPC Error opening save dialog: " + err, "error");
             }
         });
 

@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from unittest.mock import patch, MagicMock
 import pytest
 import openpyxl
 import src.app.eel_bridge as bridge
@@ -112,3 +113,21 @@ def test_eel_sidebar_reorganizer_rpc_flow():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+@patch("src.hierarchy_lib.services.dialog_service.filedialog.askopenfilename")
+@patch("src.hierarchy_lib.services.dialog_service.filedialog.asksaveasfilename")
+@patch("src.hierarchy_lib.services.dialog_service.tk.Tk")
+def test_eel_file_dialog_rpc_endpoints(mock_tk, mock_asksave, mock_askopen):
+    mock_askopen.return_value = "E:/Data/test_import.xlsx"
+    mock_asksave.return_value = "E:/Data/test_export.xlsx"
+
+    open_res = bridge.open_file_dialog()
+    assert open_res["success"] is True
+    assert open_res["cancelled"] is False
+    assert open_res["file_path"] == "E:/Data/test_import.xlsx"
+
+    save_res = bridge.save_file_dialog("default.xlsx")
+    assert save_res["success"] is True
+    assert save_res["cancelled"] is False
+    assert save_res["file_path"] == "E:/Data/test_export.xlsx"

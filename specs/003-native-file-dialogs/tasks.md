@@ -11,7 +11,7 @@
 
 **Purpose**: Service module placeholders
 
-- [ ] T001 Create `FileDialogService` in `src/hierarchy_lib/services/dialog_service.py` and test file in `tests/unit/test_dialog_service.py`
+- [x] T001 Create `FileDialogService` in `src/hierarchy_lib/services/dialog_service.py` and test file in `tests/unit/test_dialog_service.py`
 
 ---
 
@@ -19,7 +19,7 @@
 
 **Purpose**: Core infrastructure that MUST be complete before user stories begin
 
-- [ ] T002 [P] Implement `FileDialogService.ask_open_file` and `ask_save_file` using `tkinter.filedialog` with `root.withdraw()`, `root.attributes('-topmost', True)`, and `root.destroy()` in `src/hierarchy_lib/services/dialog_service.py`
+- [x] T002 [P] Implement `FileDialogService.ask_open_file` and `ask_save_file` using `tkinter.filedialog` with `root.withdraw()`, `root.attributes('-topmost', True)`, and `root.destroy()` in `src/hierarchy_lib/services/dialog_service.py`
 
 ---
 
@@ -30,11 +30,11 @@
 **Independent Test**: Click "Import Excel" button, confirm native OS open dialog opens filtered for `*.xlsx` files, select file, and verify path is passed to sheet loader.
 
 ### Tests for User Story 1
-- [ ] T003 [P] [US1] Write unit tests for `ask_open_file` with mocked `tkinter.filedialog` in `tests/unit/test_dialog_service.py`
+- [x] T003 [P] [US1] Write unit tests for `ask_open_file` with mocked `tkinter.filedialog` in `tests/unit/test_dialog_service.py`
 
 ### Implementation for User Story 1
-- [ ] T004 [US1] Expose `open_file_dialog` Eel RPC endpoint in `src/app/eel_bridge.py` (depends on T002, T003)
-- [ ] T005 [US1] Wire Import Excel button in `src/web/js/app.js` to call `eel.open_file_dialog()` instead of manual text `prompt()`
+- [x] T004 [US1] Expose `open_file_dialog` Eel RPC endpoint in `src/app/eel_bridge.py` (depends on T002, T003)
+- [x] T005 [US1] Wire Import Excel button in `src/web/js/app.js` to call `eel.open_file_dialog()` instead of manual text `prompt()`
 
 **Checkpoint**: At this point, User Story 1 is fully functional and testable independently (MVP).
 
@@ -47,11 +47,11 @@
 **Independent Test**: Click "Export Excel" button, confirm native OS save dialog opens pre-filled with `.xlsx` default extension, choose path, and verify file is written.
 
 ### Tests for User Story 2
-- [ ] T006 [P] [US2] Write unit tests for `ask_save_file` with mocked `tkinter.filedialog` in `tests/unit/test_dialog_service.py`
+- [x] T006 [P] [US2] Write unit tests for `ask_save_file` with mocked `tkinter.filedialog` in `tests/unit/test_dialog_service.py`
 
 ### Implementation for User Story 2
-- [ ] T007 [US2] Expose `save_file_dialog` Eel RPC endpoint in `src/app/eel_bridge.py` (depends on T002, T006)
-- [ ] T008 [US2] Wire Export Excel button in `src/web/js/app.js` to call `eel.save_file_dialog()` instead of manual text `prompt()`
+- [x] T007 [US2] Expose `save_file_dialog` Eel RPC endpoint in `src/app/eel_bridge.py` (depends on T002, T006)
+- [x] T008 [US2] Wire Export Excel button in `src/web/js/app.js` to call `eel.save_file_dialog()` instead of manual text `prompt()`
 
 ---
 
@@ -59,8 +59,8 @@
 
 **Purpose**: Integration testing and quickstart validation
 
-- [ ] T009 [P] Write integration tests for `open_file_dialog` and `save_file_dialog` RPC endpoints in `tests/integration/test_eel_bridge.py`
-- [ ] T010 Run complete test suite (`python -m pytest`) to confirm all tests pass cleanly
+- [x] T009 [P] Write integration tests for `open_file_dialog` and `save_file_dialog` RPC endpoints in `tests/integration/test_eel_bridge.py`
+- [x] T010 Run complete test suite (`python -m pytest`) to confirm all tests pass cleanly
 
 ---
 
