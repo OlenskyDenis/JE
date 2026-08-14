@@ -30,6 +30,31 @@ def test_eel_add_and_get_workspace_tree():
     assert tree["roots"][0]["children"][0]["absolute_path"] == "RootA\\ChildA"
 
 
+def test_eel_rename_node():
+    res1 = bridge.add_node(None, "Finance", is_container=True)
+    root_id = res1["node"]["id"]
+    res2 = bridge.add_node(root_id, "Budget_2026", is_container=False)
+    child_id = res2["node"]["id"]
+
+    # 1. Rename root node
+    rename_res = bridge.rename_node(root_id, "Accounting")
+    assert rename_res["success"] is True
+    assert rename_res["node"]["name"] == "Accounting"
+    assert rename_res["roots"][0]["name"] == "Accounting"
+    assert rename_res["roots"][0]["children"][0]["absolute_path"] == "Accounting\\Budget_2026"
+
+    # 2. Rename child node
+    rename_child = bridge.rename_node(child_id, "Annual_Budget")
+    assert rename_child["success"] is True
+    assert rename_child["roots"][0]["children"][0]["name"] == "Annual_Budget"
+    assert rename_child["roots"][0]["children"][0]["absolute_path"] == "Accounting\\Annual_Budget"
+
+    # 3. Reject empty name
+    bad_rename = bridge.rename_node(root_id, "   ")
+    assert bad_rename["success"] is False
+    assert "empty" in bad_rename["error"]
+
+
 def test_eel_move_node_cycle_rejection():
     res1 = bridge.add_node(None, "Parent", is_container=True)
     p_id = res1["node"]["id"]

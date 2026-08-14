@@ -107,6 +107,29 @@ def delete_node(node_id: str) -> Dict[str, Any]:
 
 
 @eel.expose
+def rename_node(node_id: str, new_name: str) -> Dict[str, Any]:
+    """Renames target node in active forest, updates session and returns updated roots."""
+    global forest
+    try:
+        trimmed = new_name.strip() if new_name else ""
+        if not trimmed:
+            return {"success": False, "error": "Node name cannot be empty."}
+
+        node = forest.find_node(node_id)
+        if not node:
+            return {"success": False, "error": f"Node '{node_id}' not found."}
+
+        node.rename(trimmed)
+        return {
+            "success": True,
+            "node": node.to_dict(),
+            "roots": forest.to_dict()["roots"]
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@eel.expose
 def import_excel(file_path: str) -> Dict[str, Any]:
     """Imports an Excel file, replacing or merging into the active forest."""
     global forest, current_file_path

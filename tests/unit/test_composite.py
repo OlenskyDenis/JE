@@ -115,3 +115,30 @@ def test_backwards_compatible_composite_and_leaf_aliases():
     assert leaf.is_folder is False
     assert leaf.is_container is False
     assert leaf.get_absolute_path() == "Folder\\Item"
+
+
+def test_hierarchy_node_rename():
+    node = HierarchyNode("OldName")
+    assert node.name == "OldName"
+
+    # Valid rename with whitespace trimming
+    node.rename("  NewName  ")
+    assert node.name == "NewName"
+
+    # Child path propagation after parent rename
+    child = HierarchyNode("ChildItem")
+    node.add_child(child)
+    assert child.get_absolute_path() == "NewName\\ChildItem"
+
+    node.rename("ParentCategory")
+    assert child.get_absolute_path() == "ParentCategory\\ChildItem"
+
+    # Empty string and whitespace-only rejections
+    with pytest.raises(ValueError, match="cannot be empty"):
+        node.rename("")
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        node.rename("   ")
+
+    # Name remains unchanged on rejected rename
+    assert node.name == "ParentCategory"

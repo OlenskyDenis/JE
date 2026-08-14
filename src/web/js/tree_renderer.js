@@ -52,10 +52,13 @@ const TreeRenderer = {
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"/></svg>
                 </span>
                 ${iconHtml}
-                <span class="node-title">${this.escapeHtml(node.name)}</span>
+                <span class="node-title" data-id="${node.id}" title="Double-click to rename">${this.escapeHtml(node.name)}</span>
                 <span class="node-path-badge">${this.escapeHtml(node.absolute_path)}</span>
             </div>
             <div class="node-actions">
+                <button class="action-btn rename-node" title="Rename Node" data-id="${node.id}">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </button>
                 <button class="action-btn add-child" title="Add Child Node" data-id="${node.id}">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
                 </button>

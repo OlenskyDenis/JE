@@ -81,6 +81,12 @@ class HierarchyNode:
                 return found
         return None
 
+    def rename(self, new_name: str) -> None:
+        """Renames this node with validation (rejects empty strings / whitespace-only) and strips whitespace."""
+        if not new_name or not str(new_name).strip():
+            raise ValueError("Node name cannot be empty or whitespace only.")
+        self.name = self.sanitize_name(new_name)
+
     def get_absolute_path(self) -> str:
         """Recursively builds backslash-delimited path from root to this node (Root\\Folder\\Item)."""
         if self.parent is None:

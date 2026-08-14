@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const App = {
     activeParentIdForModal: null,
+    activeNodeIdForEdit: null,
+    modalMode: 'create',
     currentFileName: null,
     currentSheetName: null,
     catalogSheetName: null,
@@ -28,6 +30,8 @@ const App = {
         this.isDirty = false;
         this.currentTemplatePath = null;
         this.pendingAction = null;
+        this.modalMode = 'create';
+        this.activeNodeIdForEdit = null;
         this.bindDOM();
         this.bindEvents();
         DragDropHandler.init(
@@ -48,6 +52,7 @@ const App = {
         this.nodeModal = document.getElementById('nodeModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.inputNodeName = document.getElementById('inputNodeName');
+        this.btnModalSubmit = document.getElementById('btnModalSubmit');
 
         // Toolbar Collapse / Expand buttons (Feature 011)
         this.btnExpandAll = document.getElementById('btnExpandAll');
@@ -283,7 +288,7 @@ const App = {
             this.filterAndRenderSidebar();
         });
 
-        // Delegate click events on tree view (Feature 011: Chevron toggle, Add Child, Delete)
+        // Delegate click events on tree view (Feature 011 & 019: Chevron toggle, Add Child, Rename, Delete)
         this.treeViewEl.addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('.node-toggle');
             if (toggleBtn) {
@@ -303,6 +308,16 @@ const App = {
                 return;
             }
 
+            const renameBtn = e.target.closest('.action-btn.rename-node');
+            if (renameBtn) {
+                const nodeId = renameBtn.dataset.id;
+                const nodeCard = renameBtn.closest('.tree-node');
+                const titleEl = nodeCard ? nodeCard.querySelector('.node-title') : null;
+                const currentName = titleEl ? titleEl.textContent.trim() : '';
+                this.openEditModal(nodeId, currentName);
+                return;
+            }
+
             const addBtn = e.target.closest('.action-btn.add-child');
             if (addBtn) {
                 const parentId = addBtn.dataset.id;
@@ -318,12 +333,25 @@ const App = {
             }
         });
 
+        // Feature 019: Double-click on node label to rename
+        this.treeViewEl.addEventListener('dblclick', (e) => {
+            const titleEl = e.target.closest('.node-title');
+            if (titleEl) {
+                const nodeId = titleEl.dataset.id;
+                const currentName = titleEl.textContent.trim();
+                if (nodeId) {
+                    this.openEditModal(nodeId, currentName);
+                }
+            }
+        });
+
         // Modal event handlers
         document.getElementById('modalClose').addEventListener('click', () => this.closeModal());
         document.getElementById('btnModalCancel').addEventListener('click', () => this.closeModal());
-        document.getElementById('btnModalSubmit').addEventListener('click', () => this.submitAddModal());
+        document.getElementById('btnModalSubmit').addEventListener('click', () => this.submitModal());
         this.inputNodeName.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.submitAddModal();
+            if (e.key === 'Enter') this.submitModal();
+            if (e.key === 'Escape') this.closeModal();
         });
     },
 
@@ -678,37 +706,70 @@ const App = {
     },
 
     openAddModal(parentId, title) {
+        this.modalMode = 'create';
         this.activeParentIdForModal = parentId;
-        this.modalTitle.textContent = title;
+        this.activeNodeIdForEdit = null;
+        this.modalTitle.textContent = title || "Create Node";
+        if (this.btnModalSubmit) this.btnModalSubmit.textContent = "Create Node";
         this.inputNodeName.value = '';
         this.nodeModal.classList.remove('hidden');
         this.inputNodeName.focus();
     },
 
+    openEditModal(nodeId, currentName) {
+        this.modalMode = 'edit';
+        this.activeNodeIdForEdit = nodeId;
+        this.activeParentIdForModal = null;
+        this.modalTitle.textContent = "Edit Node Name";
+        if (this.btnModalSubmit) this.btnModalSubmit.textContent = "Save Changes";
+        this.inputNodeName.value = currentName || '';
+        this.nodeModal.classList.remove('hidden');
+        this.inputNodeName.focus();
+        this.inputNodeName.select();
+    },
+
     closeModal() {
         this.nodeModal.classList.add('hidden');
         this.activeParentIdForModal = null;
+        this.activeNodeIdForEdit = null;
+        this.modalMode = 'create';
     },
 
-    async submitAddModal() {
+    async submitModal() {
         const name = this.inputNodeName.value.trim();
         if (!name) {
             this.showToast("Node name cannot be empty.", "warning");
             return;
         }
 
-        try {
-            const res = await eel.add_node(this.activeParentIdForModal, name)();
-            if (res.success) {
-                this.isDirty = true;
-                this.updateUI(res.roots);
-                this.closeModal();
-                this.showToast(`Node '${name}' created successfully.`, "success");
-            } else {
-                this.showToast(res.error || "Failed to add node.", "error");
+        if (this.modalMode === 'edit') {
+            try {
+                const res = await eel.rename_node(this.activeNodeIdForEdit, name)();
+                if (res.success) {
+                    this.isDirty = true;
+                    this.updateUI(res.roots);
+                    this.closeModal();
+                    this.showToast(`Node renamed to '${name}'.`, "success");
+                } else {
+                    this.showToast(res.error || "Failed to rename node.", "error");
+                }
+            } catch (err) {
+                this.showToast("RPC Error renaming node: " + err, "error");
             }
-        } catch (err) {
-            this.showToast("RPC Error adding node: " + err, "error");
+        } else {
+            try {
+                const res = await eel.add_node(this.activeParentIdForModal, name)();
+                if (res.success) {
+                    this.isDirty = true;
+                    this.updateUI(res.roots);
+                    this.closeModal();
+                    this.showToast(`Node '${name}' created successfully.`, "success");
+                } else {
+                    this.showToast(res.error || "Failed to add node.", "error");
+                }
+            } catch (err) {
+                this.showToast("RPC Error adding node: " + err, "error");
+            }
         }
     },
 
