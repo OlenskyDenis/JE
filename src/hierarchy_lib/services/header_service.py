@@ -1,14 +1,17 @@
-"""HeaderService for processing, deduplicating, sorting, and filtering Excel Row 1 headers."""
+"""HeaderService for processing, deduplicating, and filtering Excel Row 1 headers in original sequence."""
 
 from typing import List, Any, Optional
 
 
 class HeaderService:
-    """Service responsible for Header list operations."""
+    """Service responsible for Header list operations with strict preservation of original column order."""
 
     @staticmethod
     def process_headers(raw_headers: List[Any]) -> List[str]:
-        """Cleans, trims whitespace, removes empty values, deduplicates, and sorts headers alphabetically."""
+        """
+        Cleans, trims whitespace, removes empty values, and deduplicates headers
+        while strictly preserving the original first-seen insertion sequence (FIFO).
+        """
         seen = set()
         cleaned_headers: List[str] = []
 
@@ -22,8 +25,6 @@ class HeaderService:
                 seen.add(item_str)
                 cleaned_headers.append(item_str)
 
-        # Sort case-insensitively while preserving original string casing
-        cleaned_headers.sort(key=lambda s: (s.lower(), s))
         return cleaned_headers
 
     @staticmethod

@@ -86,34 +86,60 @@ def test_eel_sidebar_reorganizer_rpc_flow():
         wb.save(tmp_path)
         wb.close()
 
-        # 1. Test import_excel_file with hierarchical headers
+        # 1. Test import_excel_file with hierarchical headers & multi-sheet headers dictionary
         res_import = bridge.import_excel_file(tmp_path)
         assert res_import["success"] is True
         assert res_import["sheets"] == ["SheetA", "SheetB"]
         assert res_import["active_sheet"] == "SheetA"
-        assert res_import["headers"] == ["Header 1", "Header 2"]  # sorted
+        assert res_import["headers"] == ["Header 2", "Header 1"]  # original column sequence
+        assert "all_headers" in res_import
+        assert res_import["all_headers"]["SheetA"] == ["Header 2", "Header 1"]
+        assert res_import["all_headers"]["SheetB"] == ["Category"]
         assert "roots" in res_import
         assert len(res_import["roots"]) == 2
 
-        # 2. Test switch_active_sheet with roots regeneration
+        # 2. Test get_sheet_headers on-demand endpoint
+        res_headers = bridge.get_sheet_headers("SheetB")
+        assert res_headers["success"] is True
+        assert res_headers["sheet_name"] == "SheetB"
+        assert res_headers["headers"] == ["Category"]
+
+        # 3. Modify SheetA by adding a child node
+        add_res_a = bridge.add_node(None, "CustomNodeA", is_container=True)
+        assert add_res_a["success"] is True
+
+        # 4. Switch to SheetB and modify SheetB
         res_switch = bridge.switch_active_sheet("SheetB")
         assert res_switch["success"] is True
         assert res_switch["sheet_name"] == "SheetB"
-        assert res_switch["headers"] == ["Category"]
-        assert "roots" in res_switch
-        assert len(res_switch["roots"]) == 1
-        assert res_switch["roots"][0]["name"] == "Category"
+        add_res_b = bridge.add_node(None, "CustomNodeB", is_container=True)
+        assert add_res_b["success"] is True
 
-        # 3. Test export_reorganized_row1
-        leaf_paths = ["Root\\Folder\\ItemA", "Root\\Folder\\ItemB"]
-        res_export = bridge.export_reorganized_row1("SheetA", leaf_paths, tmp_path)
-        assert res_export["success"] is True
-        assert res_export["column_count"] == 2
+        # 5. Switch back to SheetA and verify CustomNodeA is preserved in memory
+        res_back_a = bridge.switch_active_sheet("SheetA")
+        assert res_back_a["success"] is True
+        root_names_a = [r["name"] for r in res_back_a["roots"]]
+        assert "CustomNodeA" in root_names_a
 
-        # Verify exported file
+        # 6. Test save_template_sync exporting both modified sheets simultaneously
+        res_sync = bridge.save_template_sync(tmp_path)
+        assert res_sync["success"] is True
+        assert res_sync["template_path"] == tmp_path
+
+        # Verify exported template file has custom changes across both sheets with max_row == 1
         wb_check = openpyxl.load_workbook(tmp_path)
-        assert wb_check["SheetA"].cell(row=1, column=1).value == "Root\\Folder\\ItemA"
-        assert wb_check["SheetA"].cell(row=1, column=2).value == "Root\\Folder\\ItemB"
+        assert wb_check.sheetnames == ["SheetA", "SheetB"]
+        ws_a = wb_check["SheetA"]
+        ws_b = wb_check["SheetB"]
+
+        # Collect headers in Row 1 for both sheets
+        headers_a = [ws_a.cell(row=1, column=c).value for c in range(1, ws_a.max_column + 1)]
+        headers_b = [ws_b.cell(row=1, column=c).value for c in range(1, ws_b.max_column + 1)]
+
+        assert "CustomNodeA" in headers_a
+        assert "CustomNodeB" in headers_b
+        assert ws_a.max_row == 1
+        assert ws_b.max_row == 1
         wb_check.close()
     finally:
         if os.path.exists(tmp_path):
@@ -125,17 +151,26 @@ def test_eel_sidebar_reorganizer_rpc_flow():
 @patch("src.hierarchy_lib.services.dialog_service.tk.Tk")
 def test_eel_file_dialog_rpc_endpoints(mock_tk, mock_asksave, mock_askopen):
     mock_askopen.return_value = "E:/Data/test_import.xlsx"
-    mock_asksave.return_value = "E:/Data/test_export.xlsx"
+    mock_asksave.return_value = "E:/Data/Шаблон_test_import.xlsx"
 
     open_res = bridge.open_file_dialog()
     assert open_res["success"] is True
     assert open_res["cancelled"] is False
     assert open_res["file_path"] == "E:/Data/test_import.xlsx"
 
-    save_res = bridge.save_file_dialog("default.xlsx")
+    # Set current_file_path to verify default Шаблон_ naming
+    bridge.current_file_path = "E:/Data/test_import.xlsx"
+    save_res = bridge.save_file_dialog()
     assert save_res["success"] is True
     assert save_res["cancelled"] is False
-    assert save_res["file_path"] == "E:/Data/test_export.xlsx"
+    assert save_res["file_path"] == "E:/Data/Шаблон_test_import.xlsx"
+    mock_asksave.assert_called_with(
+        parent=mock_tk(),
+        title="Save Reorganized Excel File",
+        defaultextension=".xlsx",
+        initialfile="Шаблон_test_import.xlsx",
+        filetypes=[("Excel Files", "*.xlsx"), ("All Files", "*.*")]
+    )
 
 
 def test_eel_add_node_with_zone_positioning():

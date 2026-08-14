@@ -61,26 +61,27 @@ The application is an environment-independent Desktop GUI for modeling, restruct
 | [`services/forest.py`](file:///E:/JE/src/hierarchy_lib/services/forest.py) | `WorkspaceForest` | Multi-root canvas tree container. Manages `root_nodes`, positional insertion (`add_node_at_zone`), cycle-safe moves (`move_node`), dynamic leaf path resolution (`get_all_leaf_paths`). | 🟢 Active Core |
 | [`services/path_parser.py`](file:///E:/JE/src/hierarchy_lib/services/path_parser.py) | `PathParserService` | Parses lists of backslash-delimited path strings (`Root\Folder\Leaf`) into `HierarchyNode` trees with common prefix folder merging. | 🟢 Active Core |
 | [`services/path_generator.py`](file:///E:/JE/src/hierarchy_lib/services/path_generator.py) | `PathGenerator` | Computes full absolute backslash paths for all leaf nodes across the forest. | 🟢 Active Core |
-| [`services/header_service.py`](file:///E:/JE/src/hierarchy_lib/services/header_service.py) | `HeaderService` | Trims, deduplicates, filters, and alphabetically sorts raw header string lists. | 🟢 Active Core |
+| [`services/header_service.py`](file:///E:/JE/src/hierarchy_lib/services/header_service.py) | `HeaderService` | Trims, deduplicates, and filters raw header string lists while strictly preserving original Excel column sequence (FIFO). | 🟢 Active Core |
 | [`services/dialog_service.py`](file:///E:/JE/src/hierarchy_lib/services/dialog_service.py) | `FileDialogService` | Spawns native desktop OS file pickers (`askopenfilename`, `asksaveasfilename`) with hidden Tkinter root. | 🟢 Active Core |
-| [`adapters/excel_adapter.py`](file:///E:/JE/src/hierarchy_lib/adapters/excel_adapter.py) | `ExcelHierarchyAdapter` | Reads sheet names, streams Row 1 headers (`read_only=True`, `max_row=1`, 10-consecutive-empty cutoff), and exports leaf paths horizontally across Row 1 preserving lower rows. | 🟢 Active Core |
+| [`excel_adapter.py`](file:///E:/JE/src/hierarchy_lib/adapters/excel_adapter.py) | `ExcelHierarchyAdapter` | Stream-reads Row 1 headers (`read_row1_headers`), exports clean multi-sheet template workbooks with custom leaf paths across modified sheets (`export_multi_sheet_template`), and legacy helpers. Strictly guarantees `max_row == 1` with 0 data rows. | 🟢 Active |
 
 ---
 
-### 2.2 Eel RPC Bridge & Entry (`src/app/`)
+### 2.2 Eel RPC Bridge Layer (`src/app/eel_bridge.py`)
 
-| File | Endpoint / Function | Description | Active State |
+| Source File | Function / RPC | Description & Behavioral Contract | Status |
 |---|---|---|---|
-| [`main.py`](file:///E:/JE/src/app/main.py) | `main()` | Sets `PURE_PYTHON=1`, initializes Eel with `src/web/`, starts application window (1200x800). | 🟢 Active Entry |
 | [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `get_workspace_tree()` | Returns `{ success: true, roots: [...] }` representing current canvas tree. | 🟢 Active RPC |
 | [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `add_node(...)` | Adds dynamic node under parent, at zone, or as root. | 🟢 Active RPC |
 | [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `move_node(...)` | Moves node to target with zone (`BEFORE_SIBLING`, `AFTER_SIBLING`, `NEST_CHILD`) & cycle check. | 🟢 Active RPC |
 | [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `delete_node(...)` | Removes node from parent or forest roots. | 🟢 Active RPC |
-| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `import_excel_file(path)` | Opens workbook in streaming mode, parses active sheet Row 1 headers into forest, returns sheets, headers, roots. | 🟢 Active RPC |
-| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `switch_active_sheet(name)`| Reads target sheet Row 1 headers, rebuilds forest, returns headers and roots. | 🟢 Active RPC |
-| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `export_reorganized_row1(...)`| Writes leaf path strings horizontally into Row 1 across columns of specified sheet. | 🟢 Active RPC |
+| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `import_excel_file(path)` | Opens workbook in streaming mode, initializes independent `sheet_forests` for all sheets, returns sheets, headers, all_headers, roots. | 🟢 Active RPC |
+| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `get_sheet_headers(name)` | Streams and returns Row 1 headers for a specific sheet in current session. | 🟢 Active RPC |
+| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `switch_active_sheet(name)`| Retains modified tree state in `sheet_forests`, returns restored roots, headers, and bound `template_path`. | 🟢 Active RPC |
+| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `save_template_sync(path)` | Exports all modified sheets in `sheet_forests` simultaneously into a clean template file and binds `current_template_path`. | 🟢 Active RPC |
+| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `export_reorganized_row1(...)`| Writes leaf path strings horizontally into Row 1 across columns in a clean template workbook preserving all sheet names. | 🟢 Active RPC |
 | [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `open_file_dialog()` | Opens OS file dialog for `.xlsx` file selection. | 🟢 Active RPC |
-| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `save_file_dialog(...)`| Opens OS save dialog for `.xlsx` destination path. | 🟢 Active RPC |
+| [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `save_file_dialog(...)`| Opens OS save dialog proposing `Шаблон_<original_filename>.xlsx` destination path. | 🟢 Active RPC |
 | [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `import_excel(path)` | Legacy vertical column A import from Feature 001. | 🟡 Deprecated (Superceded by `import_excel_file`) |
 | [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | `export_excel(path)` | Legacy multi-sheet vertical column A export from Feature 001. | 🟡 Deprecated (Superceded by `export_reorganized_row1`) |
 
@@ -90,11 +91,11 @@ The application is an environment-independent Desktop GUI for modeling, restruct
 
 | File / Component | Role & Functionality |
 |---|---|
-| [`index.html`](file:///E:/JE/src/web/index.html) | Top navigation bar with action buttons (`Import Excel`, `Export Excel`, `Refresh`), Sheet Selector dropdown, Sidebar Header Catalog with real-time search, Hierarchy Constructor Workspace canvas (with `#btnExpandAll`, `#btnCollapseAll`, `#btnCreateRootEmpty` in empty state), Leaf Path Inspector list, Streamlined single-input Node creation modal. |
-| [`js/app.js`](file:///E:/JE/src/web/js/app.js) | Application controller. Manages DOM events, Eel RPC calls, active sheet state, sidebar header filtering, modal lifecycle, persistent folder collapse state (`collapsedNodeIds`), global expand/collapse controls, and toast notifications. |
-| [`js/tree_renderer.js`](file:///E:/JE/src/web/js/tree_renderer.js) | Renders tree nodes dynamically based on `children.length > 0` (folder icon vs leaf icon), renders interactive animated chevron toggles (`.node-toggle`) and leaf alignment spacers (`.node-toggle-spacer`), universal `+ Add Child` and delete buttons, displays live leaf path cards. |
+| [`index.html`](file:///E:/JE/src/web/index.html) | Top navigation bar with action buttons (`Import Excel`, `Export Excel`, `Refresh`), `#templateStatusBadge` bound template indicator, 2-Column workspace with Hierarchy Constructor Workspace canvas on the left (featuring inline `.workspace-sheet-picker` with `#activeSheetSelector`, `#nodeCountBadge`, `#btnExpandAll`, `#btnCollapseAll`, `#btnCreateRootEmpty` in empty state) and Unified Tabbed Sidebar (`#unifiedSidebar`) on the right. Features draggable left-edge resizer splitter (`#sidebarResizer`), Tab Bar (`#tabBtnCatalog`, `#tabBtnPaths`) with live dual counters (`#headerCountBadge`, `#pathCountBadge`), focused catalog selector (`#catalogSheetSelector`), `Export Preview` tab, and Unsaved Changes confirmation modal (`#unsavedModal`). |
+| [`js/app.js`](file:///E:/JE/src/web/js/app.js) | Application controller. Manages DOM events, Eel RPC calls, inline canvas active workspace sheet selector (`#activeSheetSelector`), bound template state (`#templateStatusBadge`), 1-click direct template update on dirty sheet switch or file import (`pendingAction`), dirty state lifecycle (`isDirty`, `#unsavedModal` interceptors on `#activeSheetSelector` & `#btnImportExcel`), independent catalog header browsing (`#catalogSheetSelector` with `__ALL__` combined support and sheet tags), modal lifecycle, persistent folder collapse state (`collapsedNodeIds`), global expand/collapse controls, tab switching controller (`TabController`), draggable left-edge resizing controller (`SidebarResizeController`), and toast notifications. |
+| [`js/tree_renderer.js`](file:///E:/JE/src/web/js/tree_renderer.js) | Renders tree nodes dynamically based on `children.length > 0` (folder icon vs leaf icon), renders interactive animated chevron toggles (`.node-toggle`) and leaf alignment spacers (`.node-toggle-spacer`), universal `+ Add Child` and delete buttons, displays live leaf path cards and updates `#pathCountBadge`. |
 | [`js/drag_drop.js`](file:///E:/JE/src/web/js/drag_drop.js) | Implements three-zone hit testing (`BEFORE_SIBLING`, `AFTER_SIBLING`, `NEST_CHILD`), cycle prevention highlights (`drop-prohibited`), and drag payloads from sidebar items or existing canvas nodes. |
-| [`css/style.css`](file:///E:/JE/src/web/css/style.css) | Core stylesheet implementing the clean dark UI design system, sidebar layout, toolbar, buttons, cards, and modal dialogs. |
+| [`css/style.css`](file:///E:/JE/src/web/css/style.css) | Core stylesheet implementing the clean dark UI design system, 2-column flexbox workspace layout, unified sidebar styling, tab controls and active indicators, draggable splitter handle (`.resizer-handle-left`), and global drag resizing state (`body.is-resizing`). |
 | [`css/drag_drop.css`](file:///E:/JE/src/web/css/drag_drop.css) | Visual feedback indicators for drag-and-drop operations (top line, bottom line, center highlight, prohibited cursor). |
 
 ---

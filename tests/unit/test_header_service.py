@@ -1,17 +1,14 @@
-"""Unit tests for HeaderService: extraction, deduplication, alphabetical sorting, and filtering."""
+"""Unit tests for HeaderService: extraction, deduplication, insertion-order preservation, and filtering."""
 
 import pytest
 from src.hierarchy_lib.services.header_service import HeaderService
 
 
-def test_process_headers_trimming_and_deduplication():
-    raw_headers = ["  Category ", "Item A", "category", "Item B", "", None, "  ", "Item A"]
+def test_process_headers_trimming_and_stable_deduplication():
+    """Trims whitespace and deduplicates while strictly preserving original first-seen insertion order."""
+    raw_headers = ["  Category ", "Item A", "Item B", "", None, "  ", "Item A", "Category"]
     result = HeaderService.process_headers(raw_headers)
-    # Deduplicated, trimmed, case-insensitive sorted
-    assert result == ["Category", "category", "Item A", "Item B"] or "category" in result
-    # Case-insensitive alphabetical sorting
-    lower_result = [h.lower() for h in result]
-    assert lower_result == sorted(lower_result)
+    assert result == ["Category", "Item A", "Item B"]
 
 
 def test_process_headers_empty():
@@ -19,10 +16,11 @@ def test_process_headers_empty():
     assert HeaderService.process_headers([None, "", "   "]) == []
 
 
-def test_process_headers_sorting():
-    raw = ["Zebra", "apple", "Banana", "123"]
+def test_process_headers_preserves_original_column_sequence():
+    """Headers must strictly preserve original left-to-right Excel column sequence without alphabetical sorting."""
+    raw = ["Zebra", "apple", "Banana", "123", "Beta"]
     result = HeaderService.process_headers(raw)
-    assert result == ["123", "apple", "Banana", "Zebra"]
+    assert result == ["Zebra", "apple", "Banana", "123", "Beta"]
 
 
 def test_filter_headers_matching():

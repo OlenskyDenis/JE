@@ -60,37 +60,72 @@ class ExcelHierarchyAdapter:
             wb.close()
 
     @staticmethod
-    def export_horizontal_row1_leaf_paths(
-        file_path_or_stream: Union[str, BinaryIO],
-        sheet_name: str,
-        leaf_paths: List[str],
+    def export_multi_sheet_template(
+        file_path_or_stream: Union[str, BinaryIO, None],
+        sheet_leaf_paths_map: Dict[str, List[str]],
         output_path: str
     ) -> int:
         """
-        Writes leaf_paths sequentially into Row 1 across columns (A1, B1, C1...) for target sheet_name.
-        Preserves lower rows (Row 2+) and unedited sheets in the workbook.
-        Returns the number of columns written.
+        Constructs a fresh openpyxl.Workbook() from scratch containing all original sheets with Row 1 headers only.
+        For each sheet in sheet_leaf_paths_map: writes custom leaf_paths across Row 1 columns (A1, B1, C1...).
+        For all other sheets: streams original Row 1 headers without reading data rows.
+        Guarantees zero data rows in Row 2+ across all sheets with minimal memory/CPU overhead.
+        Returns total columns written across all sheets.
         """
-        if isinstance(file_path_or_stream, str) and os.path.exists(file_path_or_stream):
-            wb = openpyxl.load_workbook(file_path_or_stream)
-        else:
-            wb = openpyxl.Workbook()
+        new_wb = openpyxl.Workbook()
 
-        if sheet_name in wb.sheetnames:
-            sheet = wb[sheet_name]
-        else:
-            sheet = wb.create_sheet(title=sheet_name)
+        has_source = isinstance(file_path_or_stream, str) and os.path.exists(file_path_or_stream)
 
-        # Write leaf path strings into Row 1 horizontally across columns
-        for col_idx, path_str in enumerate(leaf_paths, start=1):
-            sheet.cell(row=1, column=col_idx, value=path_str)
+        if has_source:
+            sheet_names = ExcelHierarchyAdapter.get_sheet_names(file_path_or_stream)
+            for sname in sheet_leaf_paths_map.keys():
+                if sname and sname not in sheet_names:
+                    sheet_names.append(sname)
+        else:
+            sheet_names = list(sheet_leaf_paths_map.keys()) if sheet_leaf_paths_map else ["Sheet1"]
+
+        total_cols = 0
+        for idx, sname in enumerate(sheet_names):
+            if idx == 0:
+                ws = new_wb.active
+                ws.title = sname
+            else:
+                ws = new_wb.create_sheet(title=sname)
+
+            if sname in sheet_leaf_paths_map:
+                # Target reorganized sheet: write leaf_paths into Row 1
+                paths = sheet_leaf_paths_map[sname]
+                for col_idx, path_str in enumerate(paths, start=1):
+                    ws.cell(row=1, column=col_idx, value=path_str)
+                total_cols += len(paths)
+            elif has_source:
+                # Other sheets: stream original Row 1 headers without reading data rows
+                other_headers = ExcelHierarchyAdapter.read_row1_headers(file_path_or_stream, sname)
+                for col_idx, h_str in enumerate(other_headers, start=1):
+                    ws.cell(row=1, column=col_idx, value=h_str)
+                total_cols += len(other_headers)
 
         out_dir = os.path.dirname(output_path)
         if out_dir and not os.path.exists(out_dir):
             os.makedirs(out_dir, exist_ok=True)
 
-        wb.save(output_path)
-        wb.close()
+        new_wb.save(output_path)
+        new_wb.close()
+        return total_cols
+
+    @staticmethod
+    def export_horizontal_row1_leaf_paths(
+        file_path_or_stream: Union[str, BinaryIO, None],
+        sheet_name: str,
+        leaf_paths: List[str],
+        output_path: str
+    ) -> int:
+        """Backwards-compatible wrapper calling export_multi_sheet_template."""
+        ExcelHierarchyAdapter.export_multi_sheet_template(
+            file_path_or_stream=file_path_or_stream,
+            sheet_leaf_paths_map={sheet_name: leaf_paths},
+            output_path=output_path
+        )
         return len(leaf_paths)
 
     @staticmethod
