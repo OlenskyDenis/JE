@@ -1,0 +1,15 @@
+{
+  "contract": "ExcelHierarchyAdapter Streaming API",
+  "version": "2.0.0",
+  "methods": {
+    "read_row1_headers": {
+      "params": {
+        "file_path_or_stream": "string | BinaryIO",
+        "sheet_name": "string",
+        "max_empty_consecutive": "integer (default: 10)"
+      },
+      "returns": "array[string]",
+      "behavior": "Reads strictly Row 1 using read_only streaming mode, breaks if 10 consecutive empty cells encountered, returns cleaned, sorted, unique headers."
+    }
+  }
+}

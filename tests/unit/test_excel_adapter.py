@@ -86,3 +86,115 @@ def test_export_horizontal_row1_leaf_paths():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_round_trip_parse_and_export():
+    from src.hierarchy_lib.services.path_parser import PathParserService
+    from src.hierarchy_lib.services.path_generator import PathGenerator
+
+    initial_headers = [r"Company\HR\Employees", r"Company\HR\Salaries", r"Company\Finance\Invoices"]
+    forest = PathParserService.parse_header_paths(initial_headers)
+    leaf_paths = PathGenerator.calculate_all_paths(forest)
+
+    assert leaf_paths == initial_headers
+
+
+def test_read_row1_headers_read_only_streaming_large_sheet():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "LargeSheet"
+        # Row 1 headers
+        ws.cell(row=1, column=1, value="ID")
+        ws.cell(row=1, column=2, value="Name")
+        ws.cell(row=1, column=3, value="Department")
+
+        # Add 1,000 data rows to simulate large sheet
+        for r in range(2, 1002):
+            ws.cell(row=r, column=1, value=r)
+            ws.cell(row=r, column=2, value=f"User_{r}")
+            ws.cell(row=r, column=3, value="Engineering")
+
+        wb.save(tmp_path)
+        wb.close()
+
+        headers = ExcelHierarchyAdapter.read_row1_headers(tmp_path, "LargeSheet")
+        assert headers == ["Department", "ID", "Name"]
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_read_row1_headers_consecutive_empty_cutoff():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "CutoffSheet"
+        ws.cell(row=1, column=1, value="ColA")
+        ws.cell(row=1, column=2, value="ColB")
+        # Columns 3 to 12 are left empty (10 consecutive empty cells)
+        # Column 13 has a distant header that should be ignored
+        ws.cell(row=1, column=13, value="DistantCol")
+
+        wb.save(tmp_path)
+        wb.close()
+
+        headers = ExcelHierarchyAdapter.read_row1_headers(tmp_path, "CutoffSheet")
+        assert "DistantCol" not in headers
+        assert headers == ["ColA", "ColB"]
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_read_row1_headers_small_gap_allowed():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "GapSheet"
+        ws.cell(row=1, column=1, value="ColA")
+        # Columns 2, 3, 4 empty (3 consecutive empty cells < 10)
+        ws.cell(row=1, column=5, value="ColB")
+
+        wb.save(tmp_path)
+        wb.close()
+
+        headers = ExcelHierarchyAdapter.read_row1_headers(tmp_path, "GapSheet")
+        assert headers == ["ColA", "ColB"]
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_read_row1_headers_whitespace_counts_as_empty():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "WhitespaceSheet"
+        ws.cell(row=1, column=1, value="Header1")
+        # Columns 2..11 are whitespace only
+        for c in range(2, 12):
+            ws.cell(row=1, column=c, value="   ")
+        ws.cell(row=1, column=12, value="Header2")
+
+        wb.save(tmp_path)
+        wb.close()
+
+        headers = ExcelHierarchyAdapter.read_row1_headers(tmp_path, "WhitespaceSheet")
+        assert "Header2" not in headers
+        assert headers == ["Header1"]
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)

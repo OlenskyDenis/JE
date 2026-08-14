@@ -1,15 +1,17 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: Initial Template → 1.0.0
+Version change: 1.2.0 → 1.3.0
 Modified principles:
-  - Principle I: Spec-Driven Development (SDD) & Phase Scope Enforcement (Strict prohibition on modifying source code during specify/plan/tasks/analyze)
-  - Principle II: Object-Oriented Programming (OOP) & SOLID Principles (Strict adherence to SOLID)
-  - Principle III: Gang of Four (GoF) Design Patterns (Composite pattern mandatory for nested hierarchies)
-  - Principle IV: Library-First Approach & Test-Driven Development (TDD) (Core hierarchy parsing & path generation as standalone libraries, TDD prior to UI integration)
+  - Principle I: Spec-Driven Development (SDD) & Phase Scope Enforcement
+  - Principle II: Object-Oriented Programming (OOP) & SOLID Principles
+  - Principle III: Gang of Four (GoF) Design Patterns (Dynamic Composite pattern mandatory for nested hierarchies)
+  - Principle IV: Library-First Approach & Test-Driven Development (TDD)
   - Principle V: Self-Contained & Environment-Independent Excel Processing (No MS Excel app requirement)
-Added sections: Workflow & Phase Controls, Governance
-Removed sections: Template placeholder sections
+  - Principle VI (AMENDED): Mandatory System Map First-Load, Full Dependency Tracing & Proactive Redundancy Audit (Mandatory first-step loading of .specify/system_map.md for every feature/change/fix, full cross-layer dependency tracing, and pre-spec identification of obsolete/conflicting UI elements or logic)
+  - Principle VII: Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
+Added sections: First-Action Loading & Dependency Tracing in Principle VI and Workflow Controls
+Removed sections: None
 Follow-up TODOs: None
 -->
 
@@ -32,7 +34,7 @@ Follow-up TODOs: None
 
 ### III. Gang of Four (GoF) Design Patterns
 - Classic Gang of Four (GoF) design patterns must be applied where appropriate to solve structural, creational, and behavioral challenges cleanly.
-- Structural hierarchies, nested nodes, and tree structures (such as folder/path trees and multi-level data nodes) **must** utilize the **Composite pattern** to unify leaf and container objects under a uniform interface.
+- Structural hierarchies, nested nodes, and tree structures (such as folder/path trees and multi-level data nodes) **must** utilize the **Composite pattern** (via dynamic `HierarchyNode`) to unify leaf and container objects under a uniform interface.
 
 ### IV. Library-First Approach & Test-Driven Development (TDD)
 - **Library-First**: All core business logic—specifically hierarchy parsing, data transformations, and path-generation logic—must be implemented as standalone, decoupled libraries before any UI integration.
@@ -41,18 +43,52 @@ Follow-up TODOs: None
 
 ### V. Self-Contained & Environment-Independent Excel Processing
 - Excel document reading, writing, and parsing operations must be entirely self-contained.
-- Excel processing **must run without requiring Microsoft Excel installation** or COM interop dependencies on the target host environment.
+- Excel processing **must run without requiring Microsoft Excel installation** or COM interop dependencies on the target host environment, utilizing streaming read-only mode for high performance.
+
+### VI. Mandatory System Map First-Load, Full Dependency Tracing & Proactive Redundancy Audit
+- **Mandatory First Action**: For every new feature, change, or bug fix, the AI agent **MUST load and read [`.specify/system_map.md`](../system_map.md) as the very first step** before formulating any proposals, specifications, or architectural changes.
+- **Full Cross-Layer Dependency Tracing**: The agent must trace all upstream and downstream dependencies across the entire architecture stack:
+  - Frontend DOM elements, styles, and controllers (`index.html`, `app.js`, `tree_renderer.js`, `drag_drop.js`)
+  - RPC Bridge endpoints and contracts (`eel_bridge.py`)
+  - Core domain models and services (`HierarchyNode`, `WorkspaceForest`, `PathParserService`, `ExcelHierarchyAdapter`, etc.)
+- **Proactive Redundancy & Conflict Detection (Pre-Spec Gate)**: **BEFORE** proposing specifications or plans, the agent must actively inspect and identify:
+  - Obsolete, redundant, or orphaned UI elements (e.g. unneeded form inputs, modal controls, buttons, dead listeners)
+  - Duplicate or conflicting backend logic, classes, or endpoints
+  - Inconsistencies between UI expectations and underlying data models
+- **Continuous System Map Synchronization**: Whenever any software component, model, endpoint, or UI widget is created, modified, or retired, `.specify/system_map.md` must be updated immediately to maintain absolute ground-truth accuracy.
+
+### VII. Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
+- **No Blind Acceptance**: The AI agent and specification architects must **never blindly accept UI/UX changes, element removals, or workflow redesigns** without critical analysis.
+- **Mandatory Red Teaming**: For every proposed feature, button relocation, or element deletion, the agent must actively stress-test and simulate alternative user journeys before proceeding to planning.
+- **Clean-Slate & Empty-State Analysis**: Systematically evaluate:
+  1. *Zero-Data Scenarios*: How does a user interact when starting from scratch with 0 files loaded, an empty database, or empty sessions?
+  2. *User Deadlock / Dead-End Detection*: Does removing or altering an element trap the user in a state where necessary actions (such as initial entity creation or offline modeling) become impossible?
+  3. *Fault & Offline Tolerance*: Are graceful fallbacks in place for empty sheets, network disconnections, or dialog cancellations?
+- **Immediate Flagging & Solution Proposals**: If an architectural conflict, user deadlock, or UX regression is discovered during Red Teaming, the agent must proactively flag it to the user and propose alternative designs (e.g. contextual action triggers in empty states) prior to finalizing the plan.
+
+---
 
 ## Workflow & Phase Controls
 
-1. **Specify Phase**: Create and clarify requirements in feature specifications (`spec.md`). No source code writing.
-2. **Plan Phase**: Produce architectural decisions and research documents (`plan.md`). No source code writing.
-3. **Tasks Phase**: Generate discrete, testable action items (`tasks.md`). No source code writing.
-4. **Analyze Phase**: Validate alignment across spec, plan, and tasks. No source code writing.
-5. **Implement Phase**: Write TDD tests, implement library/core logic, and assemble UI components.
+1. **Specify Phase**:
+   - **Step 1 (First Action)**: Load and read [`.specify/system_map.md`](../system_map.md). Trace all component dependencies.
+   - **Step 2**: Proactively audit and flag any obsolete, redundant, or conflicting UI elements / code logic.
+   - **Step 3**: Perform **Red Teaming & Zero-Data Stress Testing** (Principle VII) to verify clean-slate usability and prevent deadlocks.
+   - **Step 4**: Create and clarify requirements in feature specifications (`spec.md`). No source code writing.
+2. **Plan Phase**:
+   - Produce architectural decisions, component contracts, and research documents (`plan.md`).
+   - Re-verify Red Teaming findings and update [`.specify/system_map.md`](../system_map.md). No source code writing.
+3. **Tasks Phase**:
+   - Generate discrete, testable action items (`tasks.md`), including edge case test coverage and hygiene cleanup tasks. No source code writing.
+4. **Analyze Phase**:
+   - Validate alignment across spec, plan, tasks, system map, and Red Teaming guarantees. No source code writing.
+5. **Implement Phase**:
+   - Write TDD tests, implement library/core logic, assemble UI components, and verify system map consistency.
+
+---
 
 ## Governance
 - This constitution supersedes all informal team conventions or ad-hoc practices.
 - Every pull request, spec review, and task breakdown must be verified for compliance against these principles.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-13 | **Last Amended**: 2026-08-13
+**Version**: 1.3.0 | **Ratified**: 2026-08-13 | **Last Amended**: 2026-08-14

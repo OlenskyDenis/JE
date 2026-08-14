@@ -2,6 +2,10 @@
 
 import os
 import sys
+
+# Ensure pure python fallback for gevent if DLL extensions are blocked
+os.environ.setdefault("PURE_PYTHON", "1")
+
 import eel
 import src.app.eel_bridge  # Register @eel.expose methods
 

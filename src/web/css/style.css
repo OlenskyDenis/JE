@@ -147,6 +147,11 @@ body {
     grid-template-columns: 1fr 280px 300px;
 }
 
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+}
+
 .panel {
     background-color: var(--bg-panel);
     border: 1px solid var(--border-color);
@@ -157,12 +162,20 @@ body {
 }
 
 .panel-header {
-    padding: 14px 20px;
+    padding: 12px 16px;
     background-color: var(--bg-panel-header);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.panel-header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .panel-header h2 {
@@ -349,10 +362,72 @@ body {
     color: var(--color-danger);
 }
 
+.panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-icon-sm {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+.btn-icon-sm:hover {
+    background-color: var(--bg-card-hover);
+    color: var(--text-primary);
+    border-color: var(--color-primary);
+}
+
+.node-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+.node-toggle:hover {
+    color: var(--text-primary);
+    background-color: rgba(255, 255, 255, 0.08);
+}
+.node-toggle .chevron-icon {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.18s ease-in-out;
+    transform: rotate(0deg);
+}
+.tree-node.collapsed > .tree-node-content .node-toggle .chevron-icon {
+    transform: rotate(-90deg);
+}
+.node-toggle-spacer {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
 .tree-children {
     margin-left: 24px;
     border-left: 2px solid var(--border-color);
     padding-left: 8px;
+}
+.tree-node.collapsed > .tree-children {
+    display: none;
 }
 
 /* Empty State */
@@ -567,3 +642,9 @@ body {
         transform: translateY(0);
     }
 }
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+

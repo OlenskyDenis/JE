@@ -21,24 +21,43 @@ class ExcelHierarchyAdapter:
         return names
 
     @staticmethod
-    def read_row1_headers(file_path_or_stream: Union[str, BinaryIO], sheet_name: str) -> List[str]:
-        """Reads Row 1 cells exclusively from the specified sheet, returns clean, deduplicated, sorted headers."""
-        wb = openpyxl.load_workbook(file_path_or_stream, data_only=True)
-        if sheet_name not in wb.sheetnames:
+    def read_row1_headers(
+        file_path_or_stream: Union[str, BinaryIO],
+        sheet_name: str,
+        max_empty_consecutive: int = 10
+    ) -> List[str]:
+        """
+        Reads Row 1 cells exclusively from the specified sheet in read_only streaming mode.
+        Ignores rows 2+ completely, and stops scanning if max_empty_consecutive empty/None
+        cells are encountered in Row 1.
+        Returns clean, deduplicated, sorted headers.
+        """
+        wb = openpyxl.load_workbook(file_path_or_stream, read_only=True, data_only=True)
+        try:
+            if sheet_name not in wb.sheetnames:
+                return []
+
+            sheet = wb[sheet_name]
+            raw_headers = []
+            consecutive_empty = 0
+
+            # Stream strictly Row 1
+            row_generator = sheet.iter_rows(max_row=1, values_only=True)
+            first_row = next(row_generator, None)
+
+            if first_row is not None:
+                for val in first_row:
+                    if val is not None and str(val).strip() != "":
+                        consecutive_empty = 0
+                        raw_headers.append(val)
+                    else:
+                        consecutive_empty += 1
+                        if consecutive_empty >= max_empty_consecutive:
+                            break
+
+            return HeaderService.process_headers(raw_headers)
+        finally:
             wb.close()
-            return []
-
-        sheet = wb[sheet_name]
-        raw_headers = []
-        # Read exclusively Row 1 across max columns
-        max_col = sheet.max_column or 1
-        for col_idx in range(1, max_col + 1):
-            val = sheet.cell(row=1, column=col_idx).value
-            if val is not None:
-                raw_headers.append(val)
-
-        wb.close()
-        return HeaderService.process_headers(raw_headers)
 
     @staticmethod
     def export_horizontal_row1_leaf_paths(

@@ -24,10 +24,6 @@
                 <h1>Database Hierarchy Creator</h1>
             </div>
             <div class="toolbar-actions">
-                <button id="btnAddRoot" class="btn btn-primary">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                    Add Root Node
-                </button>
                 <button id="btnImportExcel" class="btn btn-secondary">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                     Import Excel
@@ -47,14 +43,28 @@
             <!-- Left Panel: Interactive Tree Canvas -->
             <section class="panel tree-panel">
                 <div class="panel-header">
-                    <h2>Hierarchy Constructor Workspace</h2>
-                    <span class="badge-count" id="nodeCountBadge">0 Nodes</span>
+                    <div class="panel-header-title">
+                        <h2>Hierarchy Constructor Workspace</h2>
+                        <span class="badge-count" id="nodeCountBadge">0 Nodes</span>
+                    </div>
+                    <div class="panel-header-actions">
+                        <button id="btnExpandAll" class="btn btn-icon-sm" title="Expand All Folders">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11l5 5 5-5M7 5l5 5 5-5"/></svg>
+                        </button>
+                        <button id="btnCollapseAll" class="btn btn-icon-sm" title="Collapse All Folders">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 13l-5-5-5 5M17 19l-5-5-5 5"/></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="panel-body" id="treeContainer">
                     <div id="treeEmptyState" class="empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
                         <p>Workspace is empty</p>
-                        <small>Click "Add Root Node" or drag headers from the sidebar catalog to build your structure.</small>
+                        <small>Import an Excel file, drag headers from the catalog, or start from scratch:</small>
+                        <button id="btnCreateRootEmpty" class="btn btn-primary btn-sm" style="margin-top: 12px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                            Create Root Node
+                        </button>
                     </div>
                     <div id="treeView" class="tree-root-container"></div>
                 </div>
@@ -119,25 +129,6 @@
                         <label for="inputNodeName">Node Name</label>
                         <input type="text" id="inputNodeName" class="form-control" placeholder="e.g. Finance, Report_2026" autofocus>
                     </div>
-                    <div class="form-group">
-                        <label>Node Type</label>
-                        <div class="radio-group">
-                            <label class="radio-card">
-                                <input type="radio" name="nodeType" value="container" checked>
-                                <span class="radio-label">
-                                    <strong>Folder / Container</strong>
-                                    <small>Can contain sub-folders and child items</small>
-                                </span>
-                            </label>
-                            <label class="radio-card">
-                                <input type="radio" name="nodeType" value="leaf">
-                                <span class="radio-label">
-                                    <strong>Leaf Item</strong>
-                                    <small>Terminal data node in hierarchy</small>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button id="btnModalCancel" class="btn btn-secondary">Cancel</button>
@@ -145,9 +136,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- File Input Helper for Excel Import -->
-        <input type="file" id="excelFileInput" accept=".xlsx" style="display:none">
     </div>
 
     <!-- Application Scripts -->

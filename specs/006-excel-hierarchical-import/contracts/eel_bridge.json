@@ -1,0 +1,30 @@
+{
+  "contract": "Eel RPC Bridge API Specification",
+  "version": "1.2.0",
+  "methods": {
+    "import_excel_file": {
+      "params": {
+        "file_path": "string"
+      },
+      "returns": {
+        "success": "boolean",
+        "file_path": "string",
+        "sheets": "array[string]",
+        "active_sheet": "string",
+        "headers": "array[string]",
+        "roots": "array[object]"
+      }
+    },
+    "switch_active_sheet": {
+      "params": {
+        "sheet_name": "string"
+      },
+      "returns": {
+        "success": "boolean",
+        "sheet_name": "string",
+        "headers": "array[string]",
+        "roots": "array[object]"
+      }
+    }
+  }
+}
