@@ -1,7 +1,7 @@
 /**
  * Main Application Module connecting Eel RPC backend with HTML5 Frontend.
  * Includes Excel Header Catalog Sidebar, Sheet Manager (Feature 002),
- * and Native OS File Dialogs for Import/Export (Feature 003).
+ * Native OS File Dialogs (Feature 003), and Dynamic Folder Collapse/Expand (Feature 011).
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,14 +12,17 @@ const App = {
     activeParentIdForModal: null,
     currentSheetName: null,
     currentRawHeaders: [],
+    collapsedNodeIds: new Set(),
+    currentRoots: [],
 
     async init() {
+        this.collapsedNodeIds = new Set();
+        this.currentRoots = [];
         this.bindDOM();
         this.bindEvents();
         DragDropHandler.init(
             document.getElementById('treeView'),
-            (nodeId, targetId, zone) => this.handleMoveNode(nodeId, targetId, zone),
-            (parentId, headerLabel) => this.handleAddHeaderNode(parentId, headerLabel),
+            (payload, targetId, zone) => this.handleDropPayload(payload, targetId, zone),
             (msg, type) => this.showToast(msg, type)
         );
 
@@ -34,7 +37,10 @@ const App = {
         this.nodeModal = document.getElementById('nodeModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.inputNodeName = document.getElementById('inputNodeName');
-        this.excelFileInput = document.getElementById('excelFileInput');
+
+        // Toolbar Collapse / Expand buttons (Feature 011)
+        this.btnExpandAll = document.getElementById('btnExpandAll');
+        this.btnCollapseAll = document.getElementById('btnCollapseAll');
 
         // Sidebar DOM elements (Feature 002)
         this.sheetSelector = document.getElementById('sheetSelector');
@@ -45,8 +51,19 @@ const App = {
     },
 
     bindEvents() {
-        document.getElementById('btnAddRoot').addEventListener('click', () => this.openAddModal(null, "Add Root Node"));
+        const btnCreateRootEmpty = document.getElementById('btnCreateRootEmpty');
+        if (btnCreateRootEmpty) {
+            btnCreateRootEmpty.addEventListener('click', () => this.openAddModal(null, "Create Root Node"));
+        }
         document.getElementById('btnRefresh').addEventListener('click', () => this.refreshWorkspace());
+
+        // Feature 011: Global Toolbar Expand All / Collapse All
+        if (this.btnExpandAll) {
+            this.btnExpandAll.addEventListener('click', () => this.expandAll());
+        }
+        if (this.btnCollapseAll) {
+            this.btnCollapseAll.addEventListener('click', () => this.collapseAll());
+        }
 
         // Feature 003: Native OS Open File Dialog for Excel Import
         document.getElementById('btnImportExcel').addEventListener('click', async () => {
@@ -85,8 +102,26 @@ const App = {
             this.filterAndRenderSidebar();
         });
 
-        // Delegate click events on tree view
+        // Delegate click events on tree view (Feature 011: Chevron toggle, Add Child, Delete)
         this.treeViewEl.addEventListener('click', (e) => {
+            const toggleBtn = e.target.closest('.node-toggle');
+            if (toggleBtn) {
+                const nodeId = toggleBtn.dataset.id;
+                const treeNode = toggleBtn.closest('.tree-node');
+                if (treeNode && nodeId) {
+                    if (this.collapsedNodeIds.has(nodeId)) {
+                        this.collapsedNodeIds.delete(nodeId);
+                        treeNode.classList.remove('collapsed');
+                        toggleBtn.title = "Collapse folder";
+                    } else {
+                        this.collapsedNodeIds.add(nodeId);
+                        treeNode.classList.add('collapsed');
+                        toggleBtn.title = "Expand folder";
+                    }
+                }
+                return;
+            }
+
             const addBtn = e.target.closest('.action-btn.add-child');
             if (addBtn) {
                 const parentId = addBtn.dataset.id;
@@ -128,7 +163,8 @@ const App = {
     },
 
     updateUI(roots) {
-        TreeRenderer.renderTree(roots, this.treeViewEl);
+        this.currentRoots = roots || [];
+        TreeRenderer.renderTree(roots, this.treeViewEl, this.collapsedNodeIds);
         TreeRenderer.renderPaths(roots, this.pathListEl);
 
         let totalNodes = 0;
@@ -141,7 +177,27 @@ const App = {
         this.nodeCountBadge.textContent = `${totalNodes} Nodes`;
     },
 
-    // Feature 002: Excel File Import & Sheet Management
+    // Feature 011: Expand All and Collapse All Global Controls
+    expandAll() {
+        this.collapsedNodeIds.clear();
+        this.updateUI(this.currentRoots);
+    },
+
+    collapseAll() {
+        this.collapsedNodeIds.clear();
+        const collectFolders = (node) => {
+            if (node.children && node.children.length > 0) {
+                this.collapsedNodeIds.add(node.id);
+                node.children.forEach(collectFolders);
+            }
+        };
+        if (this.currentRoots) {
+            this.currentRoots.forEach(collectFolders);
+        }
+        this.updateUI(this.currentRoots);
+    },
+
+    // Feature 002 & 006: Excel File Import & Sheet Management with Automatic Tree Generation
     async handleImportExcelFile(filePath) {
         try {
             const res = await eel.import_excel_file(filePath)();
@@ -159,7 +215,11 @@ const App = {
                 this.currentRawHeaders = res.headers || [];
                 this.sidebarSearch.disabled = false;
                 this.sidebarSearch.value = '';
+                this.collapsedNodeIds.clear(); // Reset collapse state on new file import
                 this.filterAndRenderSidebar();
+                if (res.roots) {
+                    this.updateUI(res.roots);
+                }
                 this.showToast(`Imported Excel session: ${res.sheets.length} sheets found.`, "success");
             } else {
                 this.showToast(res.error || "Failed to import Excel session.", "error");
@@ -176,7 +236,11 @@ const App = {
                 this.currentSheetName = res.sheet_name;
                 this.currentRawHeaders = res.headers || [];
                 this.sidebarSearch.value = '';
+                this.collapsedNodeIds.clear(); // Reset collapse state on sheet switch
                 this.filterAndRenderSidebar();
+                if (res.roots) {
+                    this.updateUI(res.roots);
+                }
                 this.showToast(`Switched active sheet to '${sheetName}'.`, "success");
             } else {
                 this.showToast(res.error || "Failed to switch sheet.", "error");
@@ -196,12 +260,14 @@ const App = {
 
         if (!filtered || filtered.length === 0) {
             this.sidebarEmptyState.classList.remove('hidden');
+            this.sidebarEmptyState.style.display = '';
             this.sidebarHeaderList.classList.add('hidden');
             this.headerCountBadge.textContent = "0 Headers";
             return;
         }
 
         this.sidebarEmptyState.classList.add('hidden');
+        this.sidebarEmptyState.style.display = 'none';
         this.sidebarHeaderList.classList.remove('hidden');
 
         filtered.forEach(headerText => {
@@ -226,10 +292,26 @@ const App = {
         this.headerCountBadge.textContent = `${filtered.length} Headers`;
     },
 
-    // Feature 002: Add Header from Non-Destructive Drag and Drop
-    async handleAddHeaderNode(parentId, headerLabel) {
+    async handleDropPayload(payload, targetId, zone) {
+        if (!payload) return;
+
+        // Feature 011: Auto-expand folder when dropping a child inside it
+        if (zone === 'NEST_CHILD' && targetId) {
+            this.collapsedNodeIds.delete(targetId);
+        }
+
+        if (payload.isNew) {
+            await this.handleAddHeaderNode(payload.label, targetId, zone);
+        } else if (payload.id) {
+            if (!targetId || !zone) return;
+            await this.handleMoveNode(payload.id, targetId, zone);
+        }
+    },
+
+    // Feature 002: Add Header from Non-Destructive Drag and Drop with zone positioning
+    async handleAddHeaderNode(headerLabel, targetId, zone) {
         try {
-            const res = await eel.add_node(parentId, headerLabel, false)();
+            const res = await eel.add_node(null, headerLabel, false, targetId, zone)();
             if (res.success) {
                 this.updateUI(res.roots);
                 this.showToast(`Added header node '${headerLabel}' into tree structure.`, "success");
@@ -289,11 +371,8 @@ const App = {
             return;
         }
 
-        const selectedType = document.querySelector('input[name="nodeType"]:checked').value;
-        const isContainer = selectedType === 'container';
-
         try {
-            const res = await eel.add_node(this.activeParentIdForModal, name, isContainer)();
+            const res = await eel.add_node(this.activeParentIdForModal, name)();
             if (res.success) {
                 this.updateUI(res.roots);
                 this.closeModal();

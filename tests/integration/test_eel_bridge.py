@@ -86,18 +86,23 @@ def test_eel_sidebar_reorganizer_rpc_flow():
         wb.save(tmp_path)
         wb.close()
 
-        # 1. Test import_excel_file
+        # 1. Test import_excel_file with hierarchical headers
         res_import = bridge.import_excel_file(tmp_path)
         assert res_import["success"] is True
         assert res_import["sheets"] == ["SheetA", "SheetB"]
         assert res_import["active_sheet"] == "SheetA"
         assert res_import["headers"] == ["Header 1", "Header 2"]  # sorted
+        assert "roots" in res_import
+        assert len(res_import["roots"]) == 2
 
-        # 2. Test switch_active_sheet
+        # 2. Test switch_active_sheet with roots regeneration
         res_switch = bridge.switch_active_sheet("SheetB")
         assert res_switch["success"] is True
         assert res_switch["sheet_name"] == "SheetB"
         assert res_switch["headers"] == ["Category"]
+        assert "roots" in res_switch
+        assert len(res_switch["roots"]) == 1
+        assert res_switch["roots"][0]["name"] == "Category"
 
         # 3. Test export_reorganized_row1
         leaf_paths = ["Root\\Folder\\ItemA", "Root\\Folder\\ItemB"]
@@ -131,3 +136,73 @@ def test_eel_file_dialog_rpc_endpoints(mock_tk, mock_asksave, mock_askopen):
     assert save_res["success"] is True
     assert save_res["cancelled"] is False
     assert save_res["file_path"] == "E:/Data/test_export.xlsx"
+
+
+def test_eel_add_node_with_zone_positioning():
+    # 1. Create root node A and child node B
+    res_root = bridge.add_node(None, "RootA", is_container=True)
+    root_id = res_root["node"]["id"]
+
+    res_child_b = bridge.add_node(root_id, "NodeB", is_container=True)
+    b_id = res_child_b["node"]["id"]
+
+    # 2. Add header BEFORE NodeB
+    res_before = bridge.add_node(name="HeaderBefore", is_container=False, target_id=b_id, zone="BEFORE_SIBLING")
+    assert res_before["success"] is True
+
+    # 3. Add header AFTER NodeB
+    res_after = bridge.add_node(name="HeaderAfter", is_container=False, target_id=b_id, zone="AFTER_SIBLING")
+    assert res_after["success"] is True
+
+    # 4. Add header NEST_CHILD inside NodeB
+    res_inside = bridge.add_node(name="HeaderInside", is_container=False, target_id=b_id, zone="NEST_CHILD")
+    assert res_inside["success"] is True
+
+    tree = bridge.get_workspace_tree()
+    root_node = tree["roots"][0]
+    children_names = [c["name"] for c in root_node["children"]]
+    assert children_names == ["HeaderBefore", "NodeB", "HeaderAfter"]
+
+    node_b = root_node["children"][1]
+    assert node_b["children"][0]["name"] == "HeaderInside"
+
+
+def test_eel_hierarchical_excel_import_and_switch():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = "Sales"
+        ws1.cell(row=1, column=1, value=r"Company\Sales\Orders")
+        ws1.cell(row=1, column=2, value=r"Company\Sales\Customers")
+        ws1.cell(row=1, column=3, value=r"Company\HR\Employees")
+
+        ws2 = wb.create_sheet(title="Warehouse")
+        ws2.cell(row=1, column=1, value=r"Inventory\Stock\Items")
+        wb.save(tmp_path)
+        wb.close()
+
+        # Import file: should auto-generate hierarchy for Sales
+        res1 = bridge.import_excel_file(tmp_path)
+        assert res1["success"] is True
+        roots1 = res1["roots"]
+        assert len(roots1) == 1
+        assert roots1[0]["name"] == "Company"
+        folder_names = [c["name"] for c in roots1[0]["children"]]
+        assert "Sales" in folder_names
+        assert "HR" in folder_names
+
+        # Switch to Warehouse: should regenerate hierarchy for Warehouse
+        res2 = bridge.switch_active_sheet("Warehouse")
+        assert res2["success"] is True
+        roots2 = res2["roots"]
+        assert len(roots2) == 1
+        assert roots2[0]["name"] == "Inventory"
+        assert roots2[0]["children"][0]["name"] == "Stock"
+        assert roots2[0]["children"][0]["children"][0]["name"] == "Items"
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+

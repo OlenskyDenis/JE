@@ -48,6 +48,10 @@ def test_move_node_nest_child():
     assert len(root1.children) == 0
     assert len(root2.children) == 1
 
+    # Dynamic leaf paths: Root1 (now 0 children) and Root2\Item1 (terminal leaf)
+    paths = PathGenerator.calculate_all_paths(forest)
+    assert paths == ["Root1", "Root2\\Item1"]
+
 
 def test_move_node_before_sibling():
     forest = WorkspaceForest()

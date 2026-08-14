@@ -1,18 +1,16 @@
-"""WorkspaceForest service managing multi-root tree structures."""
+"""WorkspaceForest service managing multi-root tree structures with dynamic HierarchyNodes."""
 
 from typing import List, Optional, Dict, Any
-from src.hierarchy_lib.models.base import HierarchyComponent
-from src.hierarchy_lib.models.composite import CompositeNode
-from src.hierarchy_lib.models.leaf import LeafNode
+from src.hierarchy_lib.models.node import HierarchyNode
 
 
 class WorkspaceForest:
     """Manages a forest of multiple top-level root nodes and tree manipulations."""
 
     def __init__(self):
-        self.root_nodes: List[CompositeNode] = []
+        self.root_nodes: List[HierarchyNode] = []
 
-    def add_root(self, node: CompositeNode, index: Optional[int] = None) -> None:
+    def add_root(self, node: HierarchyNode, index: Optional[int] = None) -> None:
         """Adds a top-level root node to the workspace forest."""
         node.parent = None
         if index is not None and 0 <= index <= len(self.root_nodes):
@@ -20,14 +18,14 @@ class WorkspaceForest:
         else:
             self.root_nodes.append(node)
 
-    def remove_root(self, node_id: str) -> Optional[CompositeNode]:
+    def remove_root(self, node_id: str) -> Optional[HierarchyNode]:
         """Removes a top-level root node by ID."""
         for idx, root in enumerate(self.root_nodes):
             if root.id == node_id:
                 return self.root_nodes.pop(idx)
         return None
 
-    def find_node(self, node_id: str) -> Optional[HierarchyComponent]:
+    def find_node(self, node_id: str) -> Optional[HierarchyNode]:
         """Recursively finds any node by ID across all root trees in the forest."""
         for root in self.root_nodes:
             found = root.find_node_recursive(node_id)
@@ -35,10 +33,44 @@ class WorkspaceForest:
                 return found
         return None
 
+    def add_node_at_zone(self, node: HierarchyNode, target_node_id: Optional[str] = None, zone: Optional[str] = None) -> None:
+        """
+        Inserts a node into the forest relative to target_node_id based on zone.
+        If target_node_id or zone is None, appends as a top-level root node.
+        Zones:
+        - NEST_CHILD: Nest node inside target_node (target dynamically upgrades to folder).
+        - BEFORE_SIBLING: Insert node immediately before target_node as a sibling.
+        - AFTER_SIBLING: Insert node immediately after target_node as a sibling.
+        """
+        if not target_node_id or not zone:
+            self.add_root(node)
+            return
+
+        target = self.find_node(target_node_id)
+        if not target:
+            raise ValueError(f"Target node '{target_node_id}' not found in workspace forest.")
+
+        if zone == "NEST_CHILD":
+            target.add_child(node)
+
+        elif zone in ("BEFORE_SIBLING", "AFTER_SIBLING"):
+            parent = target.parent
+            if parent is not None:
+                target_idx = parent.children.index(target)
+                insert_idx = target_idx if zone == "BEFORE_SIBLING" else target_idx + 1
+                parent.add_child(node, index=insert_idx)
+            else:
+                # Target is a top-level root node
+                target_idx = self.root_nodes.index(target)
+                insert_idx = target_idx if zone == "BEFORE_SIBLING" else target_idx + 1
+                self.add_root(node, index=insert_idx)
+        else:
+            raise ValueError(f"Invalid drag zone '{zone}'. Expected BEFORE_SIBLING, AFTER_SIBLING, or NEST_CHILD.")
+
     def move_node(self, node_id: str, target_node_id: str, zone: str) -> None:
         """
         Moves a node relative to a target node based on the drag zone:
-        - NEST_CHILD: Nest node inside target_node (target must be a container).
+        - NEST_CHILD: Nest node inside target_node.
         - BEFORE_SIBLING: Insert node immediately before target_node as a sibling.
         - AFTER_SIBLING: Insert node immediately after target_node as a sibling.
         """
@@ -52,48 +84,26 @@ class WorkspaceForest:
             raise ValueError("Source or target node not found in workspace forest.")
 
         # Cycle prevention check
-        if node.is_container and isinstance(node, CompositeNode) and node.is_ancestor_of(target):
+        if node.is_ancestor_of(target):
             raise ValueError(f"Cannot move parent node '{node.name}' into its own descendant '{target.name}'.")
 
         # Detach node from current location
         if node.parent:
-            if isinstance(node.parent, CompositeNode):
-                node.parent.remove_child(node.id)
+            node.parent.remove_child(node.id)
         else:
             # Was a root node
             self.remove_root(node.id)
 
-        if zone == "NEST_CHILD":
-            if not target.is_container or not isinstance(target, CompositeNode):
-                raise ValueError(f"Target node '{target.name}' is a leaf node and cannot nest child nodes.")
-            target.add_child(node)
-
-        elif zone in ("BEFORE_SIBLING", "AFTER_SIBLING"):
-            parent = target.parent
-            if parent is not None and isinstance(parent, CompositeNode):
-                target_idx = parent.children.index(target)
-                insert_idx = target_idx if zone == "BEFORE_SIBLING" else target_idx + 1
-                parent.add_child(node, index=insert_idx)
-            else:
-                # Target is a top-level root node
-                target_idx = self.root_nodes.index(target)
-                insert_idx = target_idx if zone == "BEFORE_SIBLING" else target_idx + 1
-                if not isinstance(node, CompositeNode):
-                    # Wrap leaf node in a root container if dropped as a top-level root sibling
-                    wrapper = CompositeNode(node.name, node.id)
-                    node = wrapper
-                self.add_root(node, index=insert_idx)
-        else:
-            raise ValueError(f"Invalid drag zone '{zone}'. Expected BEFORE_SIBLING, AFTER_SIBLING, or NEST_CHILD.")
+        self.add_node_at_zone(node, target_node_id, zone)
 
     def get_all_leaf_paths(self) -> List[str]:
-        """Traverses all trees and collects absolute paths for all leaf nodes across the forest."""
+        """Traverses all trees and collects absolute paths for all leaf nodes (nodes with 0 children)."""
         paths: List[str] = []
 
-        def _traverse(component: HierarchyComponent):
-            if not component.is_container or (isinstance(component, CompositeNode) and len(component.children) == 0):
+        def _traverse(component: HierarchyNode):
+            if len(component.children) == 0:
                 paths.append(component.get_absolute_path())
-            elif isinstance(component, CompositeNode):
+            else:
                 for child in component.children:
                     _traverse(child)
 

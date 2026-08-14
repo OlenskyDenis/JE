@@ -1,0 +1,12 @@
+{
+  "contract": "Dynamic HierarchyNode Data Transfer Contract",
+  "version": "3.0.0",
+  "properties": {
+    "id": { "type": "string", "description": "Unique UUID identifier" },
+    "name": { "type": "string", "description": "Display name of the node" },
+    "is_folder": { "type": "boolean", "description": "True if len(children) > 0, False if 0 children" },
+    "is_container": { "type": "boolean", "description": "Alias for is_folder for backwards compatibility" },
+    "absolute_path": { "type": "string", "description": "Backslash-delimited path from root" },
+    "children": { "type": "array", "items": { "$ref": "#" }, "description": "Nested child HierarchyNode objects" }
+  }
+}

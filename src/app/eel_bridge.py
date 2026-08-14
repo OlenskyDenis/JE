@@ -1,13 +1,19 @@
 """Eel RPC Bridge methods connecting Python backend with JavaScript frontend."""
 
 import os
+
+# Ensure pure python fallback for gevent if DLL extensions are blocked
+os.environ.setdefault("PURE_PYTHON", "1")
+
 from typing import Dict, Any, Optional, List
 import eel
+from src.hierarchy_lib.models.node import HierarchyNode
 from src.hierarchy_lib.models.composite import CompositeNode
 from src.hierarchy_lib.models.leaf import LeafNode
 from src.hierarchy_lib.services.forest import WorkspaceForest
 from src.hierarchy_lib.adapters.excel_adapter import ExcelHierarchyAdapter
 from src.hierarchy_lib.services.dialog_service import FileDialogService
+from src.hierarchy_lib.services.path_parser import PathParserService
 
 # Global active workspace forest instance and active file session
 forest = WorkspaceForest()
@@ -24,22 +30,19 @@ def get_workspace_tree() -> Dict[str, Any]:
 
 
 @eel.expose
-def add_node(parent_id: Optional[str], name: str, is_container: bool = True) -> Dict[str, Any]:
-    """Adds a new node under parent_id or as a new root node if parent_id is None/empty."""
+def add_node(parent_id: Optional[str] = None, name: str = "", is_container: bool = True, target_id: Optional[str] = None, zone: Optional[str] = None) -> Dict[str, Any]:
+    """Adds a new dynamic node under parent_id, or relative to target_id and zone, or as a new root node."""
     try:
-        new_node = CompositeNode(name) if is_container else LeafNode(name)
+        new_node = HierarchyNode(name)
 
-        if not parent_id:
-            if not isinstance(new_node, CompositeNode):
-                # Wrap leaf in container if added at root level
-                new_node = CompositeNode(name)
+        if target_id or zone:
+            forest.add_node_at_zone(new_node, target_node_id=target_id, zone=zone)
+        elif not parent_id:
             forest.add_root(new_node)
         else:
             parent = forest.find_node(parent_id)
             if not parent:
                 return {"success": False, "error": f"Parent node '{parent_id}' not found."}
-            if not parent.is_container or not isinstance(parent, CompositeNode):
-                return {"success": False, "error": f"Parent node '{parent.name}' is a leaf node and cannot have children."}
             parent.add_child(new_node)
 
         return {
@@ -137,8 +140,8 @@ def export_excel(file_path: str) -> Dict[str, Any]:
 
 @eel.expose
 def import_excel_file(file_path: str) -> Dict[str, Any]:
-    """Imports Excel file session, reads sheet list, and returns Row 1 headers for the default first sheet."""
-    global current_file_path
+    """Imports Excel file session, reads sheet list, parses Row 1 headers into forest, and returns headers and roots."""
+    global forest, current_file_path
     try:
         if not os.path.exists(file_path):
             return {"success": False, "error": f"File not found: {file_path}"}
@@ -150,13 +153,15 @@ def import_excel_file(file_path: str) -> Dict[str, Any]:
 
         active_sheet = sheets[0]
         headers = ExcelHierarchyAdapter.read_row1_headers(file_path, active_sheet)
+        forest = PathParserService.parse_header_paths(headers)
 
         return {
             "success": True,
             "file_path": file_path,
             "sheets": sheets,
             "active_sheet": active_sheet,
-            "headers": headers
+            "headers": headers,
+            "roots": forest.to_dict()["roots"]
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -164,17 +169,20 @@ def import_excel_file(file_path: str) -> Dict[str, Any]:
 
 @eel.expose
 def switch_active_sheet(sheet_name: str) -> Dict[str, Any]:
-    """Switches active sheet and returns unique sorted Row 1 headers."""
-    global current_file_path
+    """Switches active sheet, parses Row 1 headers into forest, and returns headers and roots."""
+    global forest, current_file_path
     try:
         if not current_file_path or not os.path.exists(current_file_path):
             return {"success": False, "error": "No active Excel session loaded."}
 
         headers = ExcelHierarchyAdapter.read_row1_headers(current_file_path, sheet_name)
+        forest = PathParserService.parse_header_paths(headers)
+
         return {
             "success": True,
             "sheet_name": sheet_name,
-            "headers": headers
+            "headers": headers,
+            "roots": forest.to_dict()["roots"]
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
