@@ -271,3 +271,169 @@ def test_read_row1_headers_whitespace_counts_as_empty():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_infer_column_types_from_excel_cells():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "TypedSheet"
+
+        # Headers & column formats set on Row 1 / column
+        ws.cell(row=1, column=1, value="Name")
+        c2 = ws.cell(row=1, column=2, value="Age")
+        c2.number_format = "0"
+        c3 = ws.cell(row=1, column=3, value="Score")
+        c3.number_format = "0.00"
+        c4 = ws.cell(row=1, column=4, value="Salary")
+        c4.number_format = '"$"#,##0.00'
+        c5 = ws.cell(row=1, column=5, value="Discount")
+        c5.number_format = "0.00%"
+        c6 = ws.cell(row=1, column=6, value="HireDate")
+        c6.number_format = "yyyy-mm-dd"
+        c7 = ws.cell(row=1, column=7, value="IsActive")
+        c7.number_format = "General"
+
+        wb.save(tmp_path)
+        wb.close()
+
+        type_map = ExcelHierarchyAdapter.infer_column_types(tmp_path, "TypedSheet")
+        assert type_map["Name"] == "Text"
+        assert type_map["Age"] == "Integer"
+        assert type_map["Score"] == "Decimal"
+        assert type_map["Salary"] == "Currency"
+        assert type_map["Discount"] == "Percentage"
+        assert type_map["HireDate"] == "Date"
+        assert type_map["IsActive"] == "Text"
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_export_multi_sheet_template_with_cell_number_formats():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_out:
+        out_path = tmp_out.name
+
+    try:
+        sheet_map = {
+            "Finance": [
+                {"path": "Company\\Finance\\Revenue", "type": "Currency"},
+                {"path": "Company\\Finance\\Date", "type": "Date"},
+                {"path": "Company\\Finance\\Units", "type": "Integer"},
+                {"path": "Company\\Finance\\TaxRate", "type": "Percentage"},
+                {"path": "Company\\Finance\\Notes", "type": "Text"},
+            ]
+        }
+
+        ExcelHierarchyAdapter.export_multi_sheet_template(
+            file_path_or_stream=None,
+            sheet_leaf_paths_map=sheet_map,
+            output_path=out_path
+        )
+
+        wb_out = openpyxl.load_workbook(out_path)
+        ws = wb_out["Finance"]
+
+        # Check Row 1 headers
+        assert ws.cell(row=1, column=1).value == "Company\\Finance\\Revenue"
+        assert ws.cell(row=1, column=2).value == "Company\\Finance\\Date"
+        assert ws.cell(row=1, column=3).value == "Company\\Finance\\Units"
+        assert ws.cell(row=1, column=4).value == "Company\\Finance\\TaxRate"
+        assert ws.cell(row=1, column=5).value == "Company\\Finance\\Notes"
+
+        # Check openpyxl number_format
+        assert "$" in ws.cell(row=1, column=1).number_format or ws.cell(row=1, column=1).number_format == openpyxl.styles.numbers.FORMAT_CURRENCY_USD_SIMPLE or "#,##0" in ws.cell(row=1, column=1).number_format
+        assert "yy" in ws.cell(row=1, column=2).number_format.lower() or "dd" in ws.cell(row=1, column=2).number_format.lower()
+        assert ws.cell(row=1, column=3).number_format in ("0", "#,##0")
+        assert "%" in ws.cell(row=1, column=4).number_format
+        assert ws.cell(row=1, column=5).number_format in ("@", "General")
+        wb_out.close()
+    finally:
+        if os.path.exists(out_path):
+            os.remove(out_path)
+
+
+def test_read_row1_headers_and_types_all_formats():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "FormatSheet"
+
+        headers_and_fmts = [
+            ("Revenue", '"$"#,##0.00'),
+            ("HireDate", "yyyy-mm-dd"),
+            ("EventTime", "hh:mm:ss"),
+            ("CreatedAt", "yyyy-mm-dd hh:mm:ss"),
+            ("TaxRate", "0.00%"),
+            ("Quantity", "0"),
+            ("UnitPrice", "0.00"),
+            ("Notes", "@"),
+        ]
+
+        for col_idx, (hdr, fmt) in enumerate(headers_and_fmts, start=1):
+            cell = ws.cell(row=1, column=col_idx, value=hdr)
+            cell.number_format = fmt
+
+        wb.save(tmp_path)
+        wb.close()
+
+        res = ExcelHierarchyAdapter.read_row1_headers_and_types(tmp_path, "FormatSheet")
+        res_dict = dict(res)
+        assert res_dict["Revenue"] == "Currency"
+        assert res_dict["HireDate"] == "Date"
+        assert res_dict["EventTime"] == "Time"
+        assert res_dict["CreatedAt"] == "DateTime"
+        assert res_dict["TaxRate"] == "Percentage"
+        assert res_dict["Quantity"] == "Integer"
+        assert res_dict["UnitPrice"] == "Decimal"
+        assert res_dict["Notes"] == "Text"
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_read_row1_headers_and_types_strictly_max_row_1():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "MassiveSheet"
+
+        c1 = ws.cell(row=1, column=1, value="Salary")
+        c1.number_format = '"$"#,##0.00'
+        c2 = ws.cell(row=1, column=2, value="StartDate")
+        c2.number_format = "yyyy-mm-dd"
+        c3 = ws.cell(row=1, column=3, value="Description")
+
+        # 10,000 data rows to test zero data row loading
+        for r in range(2, 10002):
+            ws.cell(row=r, column=1, value=50000 + r)
+            ws.cell(row=r, column=2, value="2026-01-01")
+            ws.cell(row=r, column=3, value=f"User {r}")
+
+        wb.save(tmp_path)
+        wb.close()
+
+        import time
+        t0 = time.perf_counter()
+        res = ExcelHierarchyAdapter.read_row1_headers_and_types(tmp_path, "MassiveSheet")
+        elapsed = time.perf_counter() - t0
+
+        assert elapsed < 0.5  # Sub-second execution strictly on Row 1
+        res_dict = dict(res)
+        assert res_dict["Salary"] == "Currency"
+        assert res_dict["StartDate"] == "Date"
+        assert res_dict["Description"] == "Text"
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+

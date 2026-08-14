@@ -11,11 +11,25 @@ class HierarchyNode:
     A node with len(children) == 0 dynamically evaluates to a leaf (is_folder = False).
     """
 
-    def __init__(self, name: str, node_id: Optional[str] = None):
+    VALID_DATA_TYPES = (
+        "Text",
+        "Integer",
+        "Decimal",
+        "Currency",
+        "Percentage",
+        "Date",
+        "Time",
+        "DateTime",
+        "Boolean",
+    )
+
+    def __init__(self, name: str, node_id: Optional[str] = None, data_type: Optional[str] = "Text"):
         self.id: str = node_id if node_id else str(uuid.uuid4())
         self.name: str = self.sanitize_name(name)
         self.parent: Optional["HierarchyNode"] = None
         self.children: List["HierarchyNode"] = []
+        self.data_type: str = self.validate_data_type(data_type) if data_type else "Text"
+
 
     @staticmethod
     def sanitize_name(name: str) -> str:
@@ -87,6 +101,21 @@ class HierarchyNode:
             raise ValueError("Node name cannot be empty or whitespace only.")
         self.name = self.sanitize_name(new_name)
 
+    @classmethod
+    def validate_data_type(cls, data_type: str) -> str:
+        """Validates and returns normalized canonical standard Excel data type string."""
+        if not data_type or not str(data_type).strip():
+            return "Text"
+        clean = str(data_type).strip()
+        for valid in cls.VALID_DATA_TYPES:
+            if clean.lower() == valid.lower():
+                return valid
+        raise ValueError(f"Invalid data type '{data_type}'. Expected one of: {', '.join(cls.VALID_DATA_TYPES)}")
+
+    def set_data_type(self, data_type: str) -> None:
+        """Sets data type with validation against standard Excel types."""
+        self.data_type = self.validate_data_type(data_type)
+
     def get_absolute_path(self) -> str:
         """Recursively builds backslash-delimited path from root to this node (Root\\Folder\\Item)."""
         if self.parent is None:
@@ -99,8 +128,10 @@ class HierarchyNode:
         return {
             "id": self.id,
             "name": self.name,
+            "data_type": self.data_type,
             "is_folder": self.is_folder,
             "is_container": self.is_container,
             "absolute_path": self.get_absolute_path(),
             "children": [child.to_dict() for child in self.children]
         }
+

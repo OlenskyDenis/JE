@@ -142,3 +142,49 @@ def test_hierarchy_node_rename():
 
     # Name remains unchanged on rejected rename
     assert node.name == "ParentCategory"
+
+
+def test_hierarchy_node_data_type_defaults_and_mutation():
+    """HierarchyNode defaults to Text data_type and allows mutation to standard Excel types."""
+    node = HierarchyNode("Item1")
+    assert node.data_type == "Text"
+
+    # Mutate to standard types
+    node.set_data_type("Currency")
+    assert node.data_type == "Currency"
+
+    node.set_data_type("Date")
+    assert node.data_type == "Date"
+
+    node.set_data_type("Integer")
+    assert node.data_type == "Integer"
+
+    # Reject invalid data types
+    with pytest.raises(ValueError, match="Invalid data type"):
+        node.set_data_type("UnsupportedType")
+
+
+def test_hierarchy_node_serialization_with_data_type():
+    """Serialization includes data_type attribute."""
+    node = HierarchyNode("Price", data_type="Currency")
+    d = node.to_dict()
+    assert d["name"] == "Price"
+    assert d["data_type"] == "Currency"
+
+
+def test_hierarchy_node_folder_to_leaf_data_type_lifecycle():
+    """When a folder loses all children, it transitions to leaf and retains valid data_type."""
+    parent = HierarchyNode("Category", data_type="Text")
+    child = HierarchyNode("Item", data_type="Decimal")
+    parent.add_child(child)
+
+    assert parent.is_folder is True
+
+    # Remove child -> parent transitions back to leaf
+    parent.remove_child(child.id)
+    assert parent.is_folder is False
+    assert parent.data_type == "Text"
+    d = parent.to_dict()
+    assert d["is_folder"] is False
+    assert d["data_type"] == "Text"
+

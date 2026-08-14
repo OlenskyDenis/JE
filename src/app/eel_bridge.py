@@ -33,10 +33,10 @@ def get_workspace_tree() -> Dict[str, Any]:
 
 
 @eel.expose
-def add_node(parent_id: Optional[str] = None, name: str = "", is_container: bool = True, target_id: Optional[str] = None, zone: Optional[str] = None) -> Dict[str, Any]:
+def add_node(parent_id: Optional[str] = None, name: str = "", is_container: bool = True, target_id: Optional[str] = None, zone: Optional[str] = None, data_type: Optional[str] = "Text") -> Dict[str, Any]:
     """Adds a new dynamic node under parent_id, or relative to target_id and zone, or as a new root node."""
     try:
-        new_node = HierarchyNode(name)
+        new_node = HierarchyNode(name, data_type=data_type)
 
         if target_id or zone:
             forest.add_node_at_zone(new_node, target_node_id=target_id, zone=zone)
@@ -130,6 +130,53 @@ def rename_node(node_id: str, new_name: str) -> Dict[str, Any]:
 
 
 @eel.expose
+def update_node_type(node_id: str, data_type: str) -> Dict[str, Any]:
+    """Updates the Excel data type of target node in active forest."""
+    global forest
+    try:
+        node = forest.find_node(node_id)
+        if not node:
+            return {"success": False, "error": f"Node '{node_id}' not found."}
+
+        node.set_data_type(data_type)
+        return {
+            "success": True,
+            "node": node.to_dict(),
+            "roots": forest.to_dict()["roots"]
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@eel.expose
+def update_node(node_id: str, name: Optional[str] = None, data_type: Optional[str] = None) -> Dict[str, Any]:
+    """Updates name and/or data_type of target node in active forest."""
+    global forest
+    try:
+        node = forest.find_node(node_id)
+        if not node:
+            return {"success": False, "error": f"Node '{node_id}' not found."}
+
+        if name is not None:
+            trimmed = str(name).strip()
+            if not trimmed:
+                return {"success": False, "error": "Node name cannot be empty."}
+            node.rename(trimmed)
+
+        if data_type is not None:
+            node.set_data_type(data_type)
+
+        return {
+            "success": True,
+            "node": node.to_dict(),
+            "roots": forest.to_dict()["roots"]
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+
+@eel.expose
 def import_excel(file_path: str) -> Dict[str, Any]:
     """Imports an Excel file, replacing or merging into the active forest."""
     global forest, current_file_path
@@ -164,9 +211,28 @@ def export_excel(file_path: str) -> Dict[str, Any]:
 
 # Endpoints for Feature 002: Excel Sidebar Reorganizer
 
+def get_forest_leaf_meta(sforest: WorkspaceForest) -> List[Dict[str, str]]:
+    """Collects leaf node absolute paths with their corresponding data types."""
+    leaf_meta: List[Dict[str, str]] = []
+
+    def _collect(node: HierarchyNode):
+        if not node.children:
+            leaf_meta.append({
+                "path": node.get_absolute_path(),
+                "type": node.data_type or "Text"
+            })
+        else:
+            for ch in node.children:
+                _collect(ch)
+
+    for root in sforest.root_nodes:
+        _collect(root)
+    return leaf_meta
+
+
 @eel.expose
 def import_excel_file(file_path: str) -> Dict[str, Any]:
-    """Imports Excel file session, reads sheet list, parses Row 1 headers for all sheets into session forests, and returns headers, all_headers, and roots."""
+    """Imports Excel file session, reads sheet list, parses Row 1 headers and data types for all sheets into session forests, and returns headers, all_headers, headers_meta, all_headers_meta, and roots."""
     global forest, current_file_path, sheet_forests, current_active_sheet, current_template_path
     try:
         if not os.path.exists(file_path):
@@ -180,15 +246,31 @@ def import_excel_file(file_path: str) -> Dict[str, Any]:
 
         active_sheet = sheets[0]
         all_headers = {}
+        all_headers_meta = {}
         sheet_forests = {}
         for s in sheets:
-            h_list = ExcelHierarchyAdapter.read_row1_headers(file_path, s)
+            header_type_pairs = ExcelHierarchyAdapter.read_row1_headers_and_types(file_path, s)
+            h_list = [name for name, _ in header_type_pairs]
+            type_map = dict(header_type_pairs)
             all_headers[s] = h_list
-            sheet_forests[s] = PathParserService.parse_header_paths(h_list)
+            all_headers_meta[s] = [
+                {"name": name, "type": dtype} for name, dtype in header_type_pairs
+            ]
+            s_forest = PathParserService.parse_header_paths(h_list)
+            for root in s_forest.root_nodes:
+                def _apply_types(n: HierarchyNode):
+                    if not n.children:
+                        n.data_type = type_map.get(n.get_absolute_path()) or type_map.get(n.name) or "Text"
+                    else:
+                        for ch in n.children:
+                            _apply_types(ch)
+                _apply_types(root)
+            sheet_forests[s] = s_forest
 
         current_active_sheet = active_sheet
         forest = sheet_forests[active_sheet]
         headers = all_headers.get(active_sheet, [])
+        headers_meta = all_headers_meta.get(active_sheet, [])
 
         return {
             "success": True,
@@ -197,11 +279,83 @@ def import_excel_file(file_path: str) -> Dict[str, Any]:
             "active_sheet": active_sheet,
             "headers": headers,
             "all_headers": all_headers,
+            "headers_meta": headers_meta,
+            "all_headers_meta": all_headers_meta,
             "template_path": current_template_path,
             "roots": forest.to_dict()["roots"]
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@eel.expose
+def refresh_excel_session() -> Dict[str, Any]:
+    """
+    Reconnects to the currently imported Excel file on disk, re-parses all sheets' Row 1 headers
+    and column formats in streaming mode (max_row=1), and updates session forests and metadata.
+    Handles all filesystem, lock, and format exceptions.
+    """
+    global forest, current_file_path, sheet_forests, current_active_sheet, current_template_path
+    if not current_file_path:
+        return {"success": False, "error": "No active Excel session loaded to refresh."}
+
+    if not os.path.exists(current_file_path):
+        return {"success": False, "error": f"Cannot refresh: File '{current_file_path}' not found."}
+
+    try:
+        sheets = ExcelHierarchyAdapter.get_sheet_names(current_file_path)
+        if not sheets:
+            return {"success": False, "error": "Workbook contains no valid worksheets."}
+
+        # Preserve currently active sheet if present, else fallback to sheets[0]
+        active_sheet = current_active_sheet if current_active_sheet in sheets else sheets[0]
+
+        all_headers = {}
+        all_headers_meta = {}
+        sheet_forests = {}
+
+        for s in sheets:
+            header_type_pairs = ExcelHierarchyAdapter.read_row1_headers_and_types(current_file_path, s)
+            h_list = [name for name, _ in header_type_pairs]
+            type_map = dict(header_type_pairs)
+            all_headers[s] = h_list
+            all_headers_meta[s] = [
+                {"name": name, "type": dtype} for name, dtype in header_type_pairs
+            ]
+            s_forest = PathParserService.parse_header_paths(h_list)
+            for root in s_forest.root_nodes:
+                def _apply_types(n: HierarchyNode):
+                    if not n.children:
+                        n.data_type = type_map.get(n.get_absolute_path()) or type_map.get(n.name) or "Text"
+                    else:
+                        for ch in n.children:
+                            _apply_types(ch)
+                _apply_types(root)
+            sheet_forests[s] = s_forest
+
+        current_active_sheet = active_sheet
+        forest = sheet_forests[active_sheet]
+        headers = all_headers.get(active_sheet, [])
+        headers_meta = all_headers_meta.get(active_sheet, [])
+
+        return {
+            "success": True,
+            "file_path": current_file_path,
+            "sheets": sheets,
+            "active_sheet": active_sheet,
+            "headers": headers,
+            "all_headers": all_headers,
+            "headers_meta": headers_meta,
+            "all_headers_meta": all_headers_meta,
+            "template_path": current_template_path,
+            "roots": forest.to_dict()["roots"]
+        }
+    except (FileNotFoundError,):
+        return {"success": False, "error": f"Cannot refresh: File '{current_file_path}' not found."}
+    except (PermissionError, IOError) as e:
+        return {"success": False, "error": f"Cannot refresh: File '{current_file_path}' is locked by another process or inaccessible ({e})."}
+    except Exception as e:
+        return {"success": False, "error": f"Cannot refresh Excel session: {str(e)}"}
 
 
 @eel.expose
@@ -232,8 +386,19 @@ def switch_active_sheet(sheet_name: str) -> Dict[str, Any]:
 
         # If sheet was not yet parsed into sheet_forests, parse from file
         if sheet_name not in sheet_forests:
-            headers = ExcelHierarchyAdapter.read_row1_headers(current_file_path, sheet_name)
-            sheet_forests[sheet_name] = PathParserService.parse_header_paths(headers)
+            header_type_pairs = ExcelHierarchyAdapter.read_row1_headers_and_types(current_file_path, sheet_name)
+            headers = [name for name, _ in header_type_pairs]
+            type_map = dict(header_type_pairs)
+            s_forest = PathParserService.parse_header_paths(headers)
+            for root in s_forest.root_nodes:
+                def _apply_types(n: HierarchyNode):
+                    if not n.children:
+                        n.data_type = type_map.get(n.get_absolute_path()) or type_map.get(n.name) or "Text"
+                    else:
+                        for ch in n.children:
+                            _apply_types(ch)
+                _apply_types(root)
+            sheet_forests[sheet_name] = s_forest
         else:
             headers = ExcelHierarchyAdapter.read_row1_headers(current_file_path, sheet_name)
 
@@ -268,10 +433,9 @@ def save_template_sync(output_path: Optional[str] = None) -> Dict[str, Any]:
             else:
                 target_path = "Шаблон_reorganized_headers_export.xlsx"
 
-        from src.hierarchy_lib.services.path_generator import PathGenerator
         sheet_leaf_paths_map = {}
         for sname, sforest in sheet_forests.items():
-            sheet_leaf_paths_map[sname] = PathGenerator.calculate_all_paths(sforest)
+            sheet_leaf_paths_map[sname] = get_forest_leaf_meta(sforest)
 
         source_file = current_file_path if current_file_path and os.path.exists(current_file_path) else None
         count = ExcelHierarchyAdapter.export_multi_sheet_template(
@@ -288,6 +452,7 @@ def save_template_sync(output_path: Optional[str] = None) -> Dict[str, Any]:
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
 
 
 @eel.expose

@@ -85,6 +85,42 @@ body {
     gap: 10px;
 }
 
+/* Language Switcher Control (Feature 023) */
+.lang-switcher {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    gap: 2px;
+}
+
+.lang-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.lang-btn:hover {
+    color: var(--text-primary);
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.lang-btn.active {
+    background-color: var(--color-primary);
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
 /* Buttons */
 .btn {
     display: inline-flex;
@@ -668,6 +704,10 @@ body.is-resizing * {
 }
 
 .path-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 10px 14px;
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -677,6 +717,76 @@ body.is-resizing * {
     color: var(--color-primary);
     word-break: break-all;
 }
+
+.path-card .path-text {
+    flex: 1;
+}
+
+/* Leaf Node & Path Element Data Type Badges (Feature 020) */
+.node-type-badge {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    user-select: none;
+    cursor: pointer;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background-color: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.node-type-badge[data-type="Currency"] {
+    background-color: rgba(52, 211, 153, 0.12);
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.3);
+}
+
+.node-type-badge[data-type="Date"],
+.node-type-badge[data-type="DateTime"],
+.node-type-badge[data-type="Time"] {
+    background-color: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.3);
+}
+
+.node-type-badge[data-type="Integer"],
+.node-type-badge[data-type="Decimal"],
+.node-type-badge[data-type="Percentage"] {
+    background-color: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
+.node-type-badge[data-type="Boolean"] {
+    background-color: rgba(167, 139, 250, 0.12);
+    color: #c084fc;
+    border-color: rgba(167, 139, 250, 0.3);
+}
+
+.node-type-badge[data-type="Text"] {
+    background-color: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.25);
+}
+
+.header-type-tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background-color: var(--bg-main);
+    color: var(--text-muted);
+    margin-left: 6px;
+}
+
 
 /* Modal Overlay */
 .modal-overlay {

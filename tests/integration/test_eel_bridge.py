@@ -266,3 +266,213 @@ def test_eel_hierarchical_excel_import_and_switch():
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
+
+def test_eel_update_node_and_type():
+    res1 = bridge.add_node(None, "Revenue", is_container=False, data_type="Text")
+    node_id = res1["node"]["id"]
+    assert res1["node"]["data_type"] == "Text"
+
+    # Update type using update_node_type
+    res_type = bridge.update_node_type(node_id, "Currency")
+    assert res_type["success"] is True
+    assert res_type["node"]["data_type"] == "Currency"
+    assert res_type["roots"][0]["data_type"] == "Currency"
+
+    # Update both name and type using update_node
+    res_both = bridge.update_node(node_id, name="TotalRevenue", data_type="Decimal")
+    assert res_both["success"] is True
+    assert res_both["node"]["name"] == "TotalRevenue"
+    assert res_both["node"]["data_type"] == "Decimal"
+
+    # Reject invalid data type
+    res_bad = bridge.update_node_type(node_id, "UnknownFormat")
+    assert res_bad["success"] is False
+    assert "Invalid data type" in res_bad["error"]
+
+
+def test_eel_import_with_data_type_metadata_and_sync():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_src, \
+         tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_out:
+        src_path = tmp_src.name
+        out_path = tmp_out.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Employees"
+        c1 = ws.cell(row=1, column=1, value="Name")
+        c1.number_format = "@"
+        c2 = ws.cell(row=1, column=2, value="Salary")
+        c2.number_format = '"$"#,##0.00'
+        c3 = ws.cell(row=1, column=3, value="HireDate")
+        c3.number_format = "yyyy-mm-dd"
+
+        wb.save(src_path)
+        wb.close()
+
+        # Import session
+        res_import = bridge.import_excel_file(src_path)
+        assert res_import["success"] is True
+        assert "all_headers_meta" in res_import
+        sheet_meta = res_import["all_headers_meta"]["Employees"]
+        meta_dict = {item["name"]: item["type"] for item in sheet_meta}
+        assert meta_dict["Name"] == "Text"
+        assert meta_dict["Salary"] == "Currency"
+        assert meta_dict["HireDate"] == "Date"
+
+        # Check that parsed root leaf nodes inherited these types
+        roots = res_import["roots"]
+        salary_node = next(r for r in roots if r["name"] == "Salary")
+        assert salary_node["data_type"] == "Currency"
+
+        # Save template sync
+        res_sync = bridge.save_template_sync(out_path)
+        assert res_sync["success"] is True
+
+        # Verify exported file number formats
+        wb_out = openpyxl.load_workbook(out_path)
+        ws_out = wb_out["Employees"]
+        assert ws_out.cell(row=1, column=1).number_format == "@"
+        assert "$" in ws_out.cell(row=1, column=2).number_format or "#,##0" in ws_out.cell(row=1, column=2).number_format
+        assert "yy" in ws_out.cell(row=1, column=3).number_format.lower()
+        wb_out.close()
+    finally:
+        if os.path.exists(src_path):
+            os.remove(src_path)
+        if os.path.exists(out_path):
+            os.remove(out_path)
+
+
+def test_eel_refresh_excel_session_success():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        # 1. Create initial workbook with 2 sheets
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = "Sales"
+        c1 = ws1.cell(row=1, column=1, value="Header1")
+        c1.number_format = "@"
+        c2 = ws1.cell(row=1, column=2, value="Revenue")
+        c2.number_format = '"$"#,##0.00'
+
+        ws2 = wb.create_sheet(title="Inventory")
+        ws2.cell(row=1, column=1, value="ItemCode")
+        wb.save(tmp_path)
+        wb.close()
+
+        # Import initial file
+        res_import = bridge.import_excel_file(tmp_path)
+        assert res_import["success"] is True
+        assert res_import["active_sheet"] == "Sales"
+        assert res_import["headers"] == ["Header1", "Revenue"]
+
+        # 2. Modify Excel file externally: add HireDate, rename Header1 -> Region, change Revenue -> Decimal
+        wb_mod = openpyxl.Workbook()
+        ws1_mod = wb_mod.active
+        ws1_mod.title = "Sales"
+        c1_mod = ws1_mod.cell(row=1, column=1, value="Region")
+        c1_mod.number_format = "@"
+        c2_mod = ws1_mod.cell(row=1, column=2, value="Revenue")
+        c2_mod.number_format = "0.00"
+        c3_mod = ws1_mod.cell(row=1, column=3, value="HireDate")
+        c3_mod.number_format = "yyyy-mm-dd"
+
+        ws2_mod = wb_mod.create_sheet(title="Inventory")
+        ws2_mod.cell(row=1, column=1, value="ItemCode")
+        wb_mod.save(tmp_path)
+        wb_mod.close()
+
+        # 3. Call refresh_excel_session
+        res_refresh = bridge.refresh_excel_session()
+        assert res_refresh["success"] is True
+        assert res_refresh["active_sheet"] == "Sales"
+        assert res_refresh["headers"] == ["Region", "Revenue", "HireDate"]
+        assert res_refresh["all_headers"]["Sales"] == ["Region", "Revenue", "HireDate"]
+
+        sales_meta = {m["name"]: m["type"] for m in res_refresh["all_headers_meta"]["Sales"]}
+        assert sales_meta["Region"] == "Text"
+        assert sales_meta["Revenue"] == "Decimal"
+        assert sales_meta["HireDate"] == "Date"
+
+        # Check roots updated
+        roots = res_refresh["roots"]
+        names = [r["name"] for r in roots]
+        assert "HireDate" in names
+        assert "Region" in names
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_eel_refresh_excel_session_active_sheet_fallback():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        # Create workbook with SheetA and SheetB
+        wb = openpyxl.Workbook()
+        ws_a = wb.active
+        ws_a.title = "SheetA"
+        ws_a.cell(row=1, column=1, value="ColA")
+
+        ws_b = wb.create_sheet(title="SheetB")
+        ws_b.cell(row=1, column=1, value="ColB")
+        wb.save(tmp_path)
+        wb.close()
+
+        # Import and switch to SheetB
+        bridge.import_excel_file(tmp_path)
+        bridge.switch_active_sheet("SheetB")
+        assert bridge.current_active_sheet == "SheetB"
+
+        # Modify file to remove SheetB (leaving only SheetA and new SheetC)
+        wb_mod = openpyxl.Workbook()
+        ws_new_a = wb_mod.active
+        ws_new_a.title = "SheetA"
+        ws_new_a.cell(row=1, column=1, value="ColA")
+        ws_new_c = wb_mod.create_sheet(title="SheetC")
+        ws_new_c.cell(row=1, column=1, value="ColC")
+        wb_mod.save(tmp_path)
+        wb_mod.close()
+
+        # Refresh: SheetB was deleted, should fall back to SheetA
+        res_refresh = bridge.refresh_excel_session()
+        assert res_refresh["success"] is True
+        assert res_refresh["active_sheet"] == "SheetA"
+        assert res_refresh["sheets"] == ["SheetA", "SheetC"]
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_eel_refresh_excel_session_exceptions():
+    # 1. No active file session
+    bridge.current_file_path = None
+    res_none = bridge.refresh_excel_session()
+    assert res_none["success"] is False
+    assert "No active Excel session" in res_none["error"]
+
+    # 2. File not found on disk
+    bridge.current_file_path = "E:/Data/definitely_missing_file_12345.xlsx"
+    res_missing = bridge.refresh_excel_session()
+    assert res_missing["success"] is False
+    assert "not found" in res_missing["error"].lower()
+
+    # 3. Corrupted / non-excel file
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp.write(b"NOT_A_VALID_ZIP_OR_XLSX_HEADER")
+        corrupted_path = tmp.name
+
+    try:
+        bridge.current_file_path = corrupted_path
+        res_corrupt = bridge.refresh_excel_session()
+        assert res_corrupt["success"] is False
+        assert len(res_corrupt["error"]) > 0
+    finally:
+        if os.path.exists(corrupted_path):
+            os.remove(corrupted_path)
+
+
+

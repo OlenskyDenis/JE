@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Hierarchy Creator & Excel Header Reorganizer</title>
+    <title data-i18n="brand_title">Конструктор ієрархії баз даних</title>
     <!-- Modern Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="css/drag_drop.css">
     <!-- Eel websocket wrapper client -->
     <script type="text/javascript" src="/eel.js"></script>
+    <script src="js/i18n.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -21,19 +22,24 @@
                 <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
                 </svg>
-                <h1>Database Hierarchy Creator</h1>
+                <h1 data-i18n="brand_title">Конструктор ієрархії баз даних</h1>
             </div>
             <div class="toolbar-actions">
-                <span class="badge-template" id="templateStatusBadge" title="Active Bound Template File for 1-Click Sync">Template: (None)</span>
+                <!-- Multilingual Switcher (Feature 023) -->
+                <div class="lang-switcher" title="Перемкнути мову / Switch Language">
+                    <button id="langBtnUk" class="lang-btn active" data-lang="uk" title="Українська мова">UA</button>
+                    <button id="langBtnEn" class="lang-btn" data-lang="en" title="English language">EN</button>
+                </div>
+                <span class="badge-template" id="templateStatusBadge" data-i18n-attr="title:template_status_title">Шаблон: (Немає)</span>
                 <button id="btnImportExcel" class="btn btn-secondary">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                    Import Excel
+                    <span data-i18n="btn_import_excel">Імпорт Excel</span>
                 </button>
                 <button id="btnExportExcel" class="btn btn-secondary">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                    Export Excel
+                    <span data-i18n="btn_export_excel">Експорт Excel</span>
                 </button>
-                <button id="btnRefresh" class="btn btn-icon" title="Refresh Tree">
+                <button id="btnRefresh" class="btn btn-icon" data-i18n-attr="title:btn_refresh" title="Оновити сесію">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
                 </button>
             </div>
@@ -45,20 +51,20 @@
             <section class="panel tree-panel">
                 <div class="panel-header">
                     <div class="panel-header-title">
-                        <h2>Hierarchy Constructor Workspace</h2>
+                        <h2 data-i18n="workspace_title">Робоча область конструктора ієрархії</h2>
                         <div class="workspace-sheet-picker">
-                            <label for="activeSheetSelector" class="workspace-sheet-label">Sheet:</label>
+                            <label for="activeSheetSelector" class="workspace-sheet-label" data-i18n="workspace_sheet_label">Аркуш:</label>
                             <select id="activeSheetSelector" class="workspace-sheet-select" title="Active Workspace Sheet">
-                                <option value="">(No Sheet)</option>
+                                <option value="" data-i18n="workspace_no_sheet">(Немає аркуша)</option>
                             </select>
                         </div>
-                        <span class="badge-count" id="nodeCountBadge">0 Nodes</span>
+                        <span class="badge-count" id="nodeCountBadge">0 Вузлів</span>
                     </div>
                     <div class="panel-header-actions">
-                        <button id="btnExpandAll" class="btn btn-icon-sm" title="Expand All Folders">
+                        <button id="btnExpandAll" class="btn btn-icon-sm" data-i18n-attr="title:tooltip_expand_all" title="Розгорнути всі папки">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11l5 5 5-5M7 5l5 5 5-5"/></svg>
                         </button>
-                        <button id="btnCollapseAll" class="btn btn-icon-sm" title="Collapse All Folders">
+                        <button id="btnCollapseAll" class="btn btn-icon-sm" data-i18n-attr="title:tooltip_collapse_all" title="Згорнути всі папки">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 13l-5-5-5 5M17 19l-5-5-5 5"/></svg>
                         </button>
                     </div>
@@ -66,11 +72,11 @@
                 <div class="panel-body" id="treeContainer">
                     <div id="treeEmptyState" class="empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-                        <p>Workspace is empty</p>
-                        <small>Import an Excel file, drag headers from the catalog, or start from scratch:</small>
+                        <p data-i18n="workspace_empty_title">Робоча область порожня</p>
+                        <small data-i18n="workspace_empty_hint">Імпортуйте файл Excel, перетягніть колонки з каталогу або створіть з нуля:</small>
                         <button id="btnCreateRootEmpty" class="btn btn-primary btn-sm" style="margin-top: 12px;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                            Create Root Node
+                            <span data-i18n="btn_create_root">Створити кореневий вузол</span>
                         </button>
                     </div>
                     <div id="treeView" class="tree-root-container"></div>
@@ -80,19 +86,19 @@
             <!-- Right Panel: Unified Tabbed Sidebar with Draggable Left Edge Resizer -->
             <section class="panel unified-sidebar-panel" id="unifiedSidebar">
                 <!-- Draggable Left-Edge Resizer Splitter -->
-                <div class="resizer-handle-left" id="sidebarResizer" title="Drag to resize sidebar (Double-click to reset)"></div>
+                <div class="resizer-handle-left" id="sidebarResizer" data-i18n-attr="title:sidebar_resizer_tooltip" title="Потягніть для зміни ширини (Подвійний клік для скидання)"></div>
 
                 <!-- Unified Sidebar Tab Bar -->
                 <div class="sidebar-tab-header">
-                    <button class="sidebar-tab-btn active" id="tabBtnCatalog" data-tab="catalog" title="Excel Header Catalog">
+                    <button class="sidebar-tab-btn active" id="tabBtnCatalog" data-tab="catalog" data-i18n-attr="title:tab_catalog" title="Каталог колонок">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <span>Header Catalog</span>
-                        <span class="badge-count" id="headerCountBadge">0 Headers</span>
+                        <span data-i18n="tab_catalog">Каталог колонок</span>
+                        <span class="badge-count" id="headerCountBadge">0 Заголовків</span>
                     </button>
-                    <button class="sidebar-tab-btn" id="tabBtnPaths" data-tab="paths" title="Export Preview (Row 1 Paths)">
+                    <button class="sidebar-tab-btn" id="tabBtnPaths" data-tab="paths" data-i18n-attr="title:tab_paths" title="Попередній перегляд">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-                        <span>Export Preview</span>
-                        <span class="badge-count" id="pathCountBadge">0 Paths</span>
+                        <span data-i18n="tab_paths">Попередній перегляд</span>
+                        <span class="badge-count" id="pathCountBadge">0 Шляхів</span>
                     </button>
                 </div>
 
@@ -100,22 +106,22 @@
                 <div class="sidebar-tab-content active" id="tabContentCatalog">
                     <div class="sidebar-controls">
                         <div class="form-group">
-                            <label for="catalogSheetSelector">Browse Headers From</label>
+                            <label for="catalogSheetSelector" data-i18n="catalog_browse_from">Джерело колонок</label>
                             <select id="catalogSheetSelector" class="form-control" disabled>
-                                <option value="">No Excel file loaded</option>
+                                <option value="" data-i18n="catalog_no_file">Файл Excel не завантажено</option>
                             </select>
-                            <small class="form-help-text">Select source to drag headers without changing the active workspace tree.</small>
+                            <small class="form-help-text" data-i18n="catalog_help_text">Оберіть джерело для перетягування без зміни активного дерева.</small>
                         </div>
                         <div class="form-group">
-                            <label for="sidebarSearch">Search Headers</label>
-                            <input type="text" id="sidebarSearch" class="form-control" placeholder="Filter headers in real-time..." disabled>
+                            <label for="sidebarSearch" data-i18n="catalog_search_label">Пошук колонок</label>
+                            <input type="text" id="sidebarSearch" class="form-control" data-i18n-attr="placeholder:catalog_search_placeholder" placeholder="Фільтрувати колонки в реальному часі..." disabled>
                         </div>
                     </div>
                     <div class="panel-body sidebar-body">
                         <div id="sidebarEmptyState" class="empty-state">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            <p>No headers loaded</p>
-                            <small>Click "Import Excel" to extract Row 1 headers from any sheet.</small>
+                            <p data-i18n="catalog_empty_title">Немає завантажених колонок</p>
+                            <small data-i18n="catalog_empty_hint">Натисніть «Імпорт Excel», щоб отримати заголовки з 1-го рядка.</small>
                         </div>
                         <div id="sidebarHeaderList" class="sidebar-header-list hidden"></div>
                     </div>
@@ -126,7 +132,7 @@
                     <div class="panel-body">
                         <div id="pathList" class="path-list-container">
                             <div class="empty-state">
-                                <p>No leaf paths generated yet</p>
+                                <p data-i18n="paths_empty">Шляхи кінцевих елементів ще не згенеровано</p>
                             </div>
                         </div>
                     </div>
@@ -137,22 +143,37 @@
         <!-- Toast Notification Container -->
         <div id="toastContainer" class="toast-container"></div>
 
-        <!-- Add Node Modal -->
+        <!-- Add / Edit Node Modal -->
         <div id="nodeModal" class="modal-overlay hidden">
             <div class="modal-card">
                 <div class="modal-header">
-                    <h3 id="modalTitle">Create Node</h3>
+                    <h3 id="modalTitle" data-i18n="modal_create_title">Створити вузол</h3>
                     <button id="modalClose" class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="inputNodeName">Node Name</label>
-                        <input type="text" id="inputNodeName" class="form-control" placeholder="e.g. Finance, Report_2026" autofocus>
+                        <label for="inputNodeName" data-i18n="modal_label_name">Назва вузла</label>
+                        <input type="text" id="inputNodeName" class="form-control" data-i18n-attr="placeholder:modal_placeholder_name" placeholder="наприклад: Фінанси, Звіт_2026" autofocus>
+                    </div>
+                    <div class="form-group" id="groupNodeType">
+                        <label for="selectNodeType" data-i18n="modal_label_type">Тип даних елемента</label>
+                        <select id="selectNodeType" class="form-control">
+                            <option value="Text" data-i18n="type_text">Текст (Рядок)</option>
+                            <option value="Integer" data-i18n="type_integer">Ціле число (Integer)</option>
+                            <option value="Decimal" data-i18n="type_decimal">Дробове число (Decimal)</option>
+                            <option value="Currency" data-i18n="type_currency">Валюта ($#,##0.00)</option>
+                            <option value="Percentage" data-i18n="type_percentage">Відсоток (%)</option>
+                            <option value="Date" data-i18n="type_date">Дата (РРРР-ММ-ДД)</option>
+                            <option value="Time" data-i18n="type_time">Час (ГГ:ХХ:СС)</option>
+                            <option value="DateTime" data-i18n="type_datetime">Дата і час (DateTime)</option>
+                            <option value="Boolean" data-i18n="type_boolean">Логічний тип (TRUE/FALSE)</option>
+                        </select>
+                        <small id="folderTypeHint" class="form-help-text hidden" data-i18n="modal_folder_type_hint">Типи даних застосовуються лише до кінцевих елементів.</small>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="btnModalCancel" class="btn btn-secondary">Cancel</button>
-                    <button id="btnModalSubmit" class="btn btn-primary">Create Node</button>
+                    <button id="btnModalCancel" class="btn btn-secondary" data-i18n="modal_btn_cancel">Скасувати</button>
+                    <button id="btnModalSubmit" class="btn btn-primary" data-i18n="modal_btn_create">Створити вузол</button>
                 </div>
             </div>
         </div>
@@ -161,16 +182,16 @@
         <div id="unsavedModal" class="modal-overlay hidden">
             <div class="modal-card">
                 <div class="modal-header">
-                    <h3>Unsaved Changes</h3>
+                    <h3 data-i18n="unsaved_title">Незбережені зміни</h3>
                     <button id="unsavedModalClose" class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p id="unsavedModalMessage">You have unsaved changes in the Hierarchy Constructor Workspace. Do you want to save your changes before switching sheets?</p>
+                    <p id="unsavedModalMessage">У вас є незбережені зміни в робочій області. Зберегти зміни перед перемиканням?</p>
                 </div>
                 <div class="modal-footer">
-                    <button id="btnUnsavedCancel" class="btn btn-secondary">Cancel</button>
-                    <button id="btnUnsavedDiscard" class="btn btn-danger-outline">Discard & Switch</button>
-                    <button id="btnUnsavedSave" class="btn btn-primary">Save & Switch</button>
+                    <button id="btnUnsavedCancel" class="btn btn-secondary" data-i18n="unsaved_btn_cancel">Скасувати</button>
+                    <button id="btnUnsavedDiscard" class="btn btn-danger-outline" data-i18n="unsaved_btn_discard_switch">Відкинути і перемкнути</button>
+                    <button id="btnUnsavedSave" class="btn btn-primary" data-i18n="unsaved_btn_save_switch">Зберегти і перемкнути</button>
                 </div>
             </div>
         </div>

@@ -16,10 +16,12 @@ const App = {
     currentSheetName: null,
     catalogSheetName: null,
     cachedAllHeaders: {},
+    cachedAllHeadersMeta: {},
     pendingAction: null,
     isDirty: false,
     currentTemplatePath: null,
     currentRawHeaders: [],
+    currentRawHeadersMeta: [],
     collapsedNodeIds: new Set(),
     currentRoots: [],
 
@@ -27,6 +29,8 @@ const App = {
         this.collapsedNodeIds = new Set();
         this.currentRoots = [];
         this.cachedAllHeaders = {};
+        this.cachedAllHeadersMeta = {};
+        this.currentRawHeadersMeta = [];
         this.isDirty = false;
         this.currentTemplatePath = null;
         this.pendingAction = null;
@@ -34,6 +38,17 @@ const App = {
         this.activeNodeIdForEdit = null;
         this.bindDOM();
         this.bindEvents();
+
+        if (window.I18n) {
+            I18n.init();
+            I18n.onLanguageChanged(() => {
+                this.updateTemplateBadge(this.currentTemplatePath);
+                this.updateUI(this.currentRoots);
+                this.filterAndRenderSidebar();
+                this.updateSheetSelectorsLabels();
+            });
+        }
+
         DragDropHandler.init(
             document.getElementById('treeView'),
             (payload, targetId, zone) => this.handleDropPayload(payload, targetId, zone),
@@ -52,11 +67,18 @@ const App = {
         this.nodeModal = document.getElementById('nodeModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.inputNodeName = document.getElementById('inputNodeName');
+        this.groupNodeType = document.getElementById('groupNodeType');
+        this.selectNodeType = document.getElementById('selectNodeType');
+        this.folderTypeHint = document.getElementById('folderTypeHint');
         this.btnModalSubmit = document.getElementById('btnModalSubmit');
 
         // Toolbar Collapse / Expand buttons (Feature 011)
         this.btnExpandAll = document.getElementById('btnExpandAll');
         this.btnCollapseAll = document.getElementById('btnCollapseAll');
+
+        // Language switcher buttons (Feature 023)
+        this.langBtnUk = document.getElementById('langBtnUk');
+        this.langBtnEn = document.getElementById('langBtnEn');
 
         // Unified Sidebar & Tabs (Feature 013 & 015)
         this.unifiedSidebar = document.getElementById('unifiedSidebar');
@@ -86,14 +108,15 @@ const App = {
 
     updateTemplateBadge(path) {
         this.currentTemplatePath = path || null;
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         if (this.templateStatusBadge) {
             if (this.currentTemplatePath) {
                 const base = this.currentTemplatePath.split(/[/\\]/).pop();
-                this.templateStatusBadge.textContent = `Template: ${base} (Synced)`;
-                this.templateStatusBadge.title = `Bound Template File: ${this.currentTemplatePath}`;
+                this.templateStatusBadge.textContent = `${t('template_prefix')}: ${base} (Synced)`;
+                this.templateStatusBadge.title = `${t('template_status_title')}: ${this.currentTemplatePath}`;
             } else {
-                this.templateStatusBadge.textContent = `Template: (None)`;
-                this.templateStatusBadge.title = `No template file bound yet. Export or Save to bind.`;
+                this.templateStatusBadge.textContent = `${t('template_prefix')}: ${t('template_none')}`;
+                this.templateStatusBadge.title = t('template_status_title');
             }
         }
     },
@@ -102,9 +125,23 @@ const App = {
         this.bindTabs();
         this.bindResizer();
 
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+
+        // Language Switcher (Feature 023)
+        if (this.langBtnUk) {
+            this.langBtnUk.addEventListener('click', () => {
+                if (window.I18n) I18n.setLanguage('uk');
+            });
+        }
+        if (this.langBtnEn) {
+            this.langBtnEn.addEventListener('click', () => {
+                if (window.I18n) I18n.setLanguage('en');
+            });
+        }
+
         const btnCreateRootEmpty = document.getElementById('btnCreateRootEmpty');
         if (btnCreateRootEmpty) {
-            btnCreateRootEmpty.addEventListener('click', () => this.openAddModal(null, "Create Root Node"));
+            btnCreateRootEmpty.addEventListener('click', () => this.openAddModal(null, t("modal_create_title")));
         }
         document.getElementById('btnRefresh').addEventListener('click', () => this.refreshWorkspace());
 
@@ -134,13 +171,13 @@ const App = {
                 this.pendingAction = { type: 'import_file' };
                 if (this.currentTemplatePath) {
                     const base = this.currentTemplatePath.split(/[/\\]/).pop();
-                    this.unsavedModalMessage.innerHTML = `You have unsaved changes in your current session. Update template "<strong>${this.escapeHtml(base)}</strong>" before importing a new file?`;
-                    this.btnUnsavedSave.textContent = "Update Template & Import";
+                    this.unsavedModalMessage.innerHTML = t('unsaved_msg_import_update', { template: this.escapeHtml(base) });
+                    this.btnUnsavedSave.textContent = t("unsaved_btn_update_import");
                 } else {
-                    this.unsavedModalMessage.innerHTML = `You have unsaved changes in your current session. Save your changes to a template file before importing a new file?`;
-                    this.btnUnsavedSave.textContent = "Save Template & Import";
+                    this.unsavedModalMessage.innerHTML = t('unsaved_msg_import_save');
+                    this.btnUnsavedSave.textContent = t("unsaved_btn_save_import");
                 }
-                this.btnUnsavedDiscard.textContent = "Discard & Import";
+                this.btnUnsavedDiscard.textContent = t("unsaved_btn_discard_import");
                 this.unsavedModal.classList.remove('hidden');
             } else {
                 await this.promptOpenAndImportFile();
@@ -160,9 +197,9 @@ const App = {
                     if (res.success) {
                         this.isDirty = false;
                         this.updateTemplateBadge(res.template_path);
-                        this.showToast(`Exported clean template to '${res.template_path.split(/[/\\]/).pop()}'.`, "success");
+                        this.showToast(t('toast_template_exported', { template: res.template_path.split(/[/\\]/).pop() }), "success");
                     } else {
-                        this.showToast(res.error || "Failed to export template.", "error");
+                        this.showToast(res.error || t("toast_template_failed"), "error");
                     }
                 }
             } catch (err) {
@@ -179,13 +216,13 @@ const App = {
                 this.pendingAction = { type: 'switch_sheet', targetSheet: selectedSheet };
                 if (this.currentTemplatePath) {
                     const base = this.currentTemplatePath.split(/[/\\]/).pop();
-                    this.unsavedModalMessage.innerHTML = `You have unsaved changes on sheet "<strong>${this.escapeHtml(this.currentSheetName || 'Active Sheet')}</strong>". Update template "<strong>${this.escapeHtml(base)}</strong>" before switching to "<strong>${this.escapeHtml(selectedSheet)}</strong>"?`;
-                    this.btnUnsavedSave.textContent = "Update Template & Switch";
+                    this.unsavedModalMessage.innerHTML = t('unsaved_msg_switch_update', { sheet: this.escapeHtml(this.currentSheetName || 'Active Sheet'), template: this.escapeHtml(base), target: this.escapeHtml(selectedSheet) });
+                    this.btnUnsavedSave.textContent = t("unsaved_btn_update_switch");
                 } else {
-                    this.unsavedModalMessage.innerHTML = `You have unsaved changes on sheet "<strong>${this.escapeHtml(this.currentSheetName || 'Active Sheet')}</strong>". Save your changes to a template file before switching to "<strong>${this.escapeHtml(selectedSheet)}</strong>"?`;
-                    this.btnUnsavedSave.textContent = "Save Template & Switch";
+                    this.unsavedModalMessage.innerHTML = t('unsaved_msg_switch_save', { sheet: this.escapeHtml(this.currentSheetName || 'Active Sheet'), target: this.escapeHtml(selectedSheet) });
+                    this.btnUnsavedSave.textContent = t("unsaved_btn_save_switch");
                 }
-                this.btnUnsavedDiscard.textContent = "Discard & Switch";
+                this.btnUnsavedDiscard.textContent = t("unsaved_btn_discard_switch");
                 this.unsavedModal.classList.remove('hidden');
                 // Revert select display until decision
                 this.activeSheetSelector.value = this.currentSheetName;
@@ -223,6 +260,8 @@ const App = {
                 this.handleSwitchSheet(action.targetSheet);
             } else if (action.type === 'import_file') {
                 this.promptOpenAndImportFile();
+            } else if (action.type === 'refresh_file') {
+                this.performRefresh();
             }
         });
 
@@ -231,6 +270,7 @@ const App = {
             closeUnsavedModal();
             if (!action) return;
 
+            const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
             if (this.currentTemplatePath) {
                 // 1-Click Direct Sync to bound template
                 try {
@@ -238,15 +278,17 @@ const App = {
                     if (res.success) {
                         this.isDirty = false;
                         this.updateTemplateBadge(res.template_path);
-                        this.showToast(`Updated template '${res.template_path.split(/[/\\]/).pop()}'.`, "success");
+                        this.showToast(t('toast_template_updated', { template: res.template_path.split(/[/\\]/).pop() }), "success");
                         if (action.type === 'switch_sheet') {
                             this.activeSheetSelector.value = action.targetSheet;
                             this.handleSwitchSheet(action.targetSheet);
                         } else if (action.type === 'import_file') {
                             this.promptOpenAndImportFile();
+                        } else if (action.type === 'refresh_file') {
+                            this.performRefresh();
                         }
                     } else {
-                        this.showToast(res.error || "Failed to update template.", "error");
+                        this.showToast(res.error || t("toast_template_failed"), "error");
                     }
                 } catch (err) {
                     this.showToast("Error updating template: " + err, "error");
@@ -264,18 +306,20 @@ const App = {
                         if (res.success) {
                             this.isDirty = false;
                             this.updateTemplateBadge(res.template_path);
-                            this.showToast(`Saved template '${res.template_path.split(/[/\\]/).pop()}'.`, "success");
+                            this.showToast(t('toast_template_saved', { template: res.template_path.split(/[/\\]/).pop() }), "success");
                             if (action.type === 'switch_sheet') {
                                 this.activeSheetSelector.value = action.targetSheet;
                                 this.handleSwitchSheet(action.targetSheet);
                             } else if (action.type === 'import_file') {
                                 this.promptOpenAndImportFile();
+                            } else if (action.type === 'refresh_file') {
+                                this.performRefresh();
                             }
                         } else {
-                            this.showToast(res.error || "Failed to save template.", "error");
+                            this.showToast(res.error || t("toast_template_failed"), "error");
                         }
                     } else {
-                        this.showToast("Save cancelled. Remained on active workspace.", "info");
+                        this.showToast(t("toast_save_cancelled"), "info");
                     }
                 } catch (err) {
                     this.showToast("Error saving before action: " + err, "error");
@@ -314,7 +358,9 @@ const App = {
                 const nodeCard = renameBtn.closest('.tree-node');
                 const titleEl = nodeCard ? nodeCard.querySelector('.node-title') : null;
                 const currentName = titleEl ? titleEl.textContent.trim() : '';
-                this.openEditModal(nodeId, currentName);
+                const currentType = nodeCard ? (nodeCard.dataset.dataType || 'Text') : 'Text';
+                const isFolder = nodeCard ? (nodeCard.dataset.isFolder === 'true') : false;
+                this.openEditModal(nodeId, currentName, currentType, isFolder);
                 return;
             }
 
@@ -333,17 +379,22 @@ const App = {
             }
         });
 
-        // Feature 019: Double-click on node label to rename
+        // Feature 019 & 020: Double-click on node label or badge to edit
         this.treeViewEl.addEventListener('dblclick', (e) => {
-            const titleEl = e.target.closest('.node-title');
-            if (titleEl) {
-                const nodeId = titleEl.dataset.id;
-                const currentName = titleEl.textContent.trim();
+            const targetEl = e.target.closest('.node-title, .node-type-badge');
+            if (targetEl) {
+                const nodeCard = targetEl.closest('.tree-node');
+                const nodeId = nodeCard ? nodeCard.dataset.id : null;
+                const titleEl = nodeCard ? nodeCard.querySelector('.node-title') : null;
+                const currentName = titleEl ? titleEl.textContent.trim() : '';
+                const currentType = nodeCard ? (nodeCard.dataset.dataType || 'Text') : 'Text';
+                const isFolder = nodeCard ? (nodeCard.dataset.isFolder === 'true') : false;
                 if (nodeId) {
-                    this.openEditModal(nodeId, currentName);
+                    this.openEditModal(nodeId, currentName, currentType, isFolder);
                 }
             }
         });
+
 
         // Modal event handlers
         document.getElementById('modalClose').addEventListener('click', () => this.closeModal());
@@ -436,9 +487,10 @@ const App = {
         });
 
         this.sidebarResizer.addEventListener('dblclick', () => {
+            const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
             this.setSidebarWidth(340);
             localStorage.setItem('app_sidebar_width', '340');
-            this.showToast("Sidebar width reset to default (340px).", "success");
+            this.showToast(t("sidebar_width_reset_toast"), "success");
         });
     },
 
@@ -449,19 +501,104 @@ const App = {
         }
     },
 
+    updateSheetSelectorsLabels() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (this.catalogSheetSelector) {
+            const allOpt = this.catalogSheetSelector.querySelector('option[value="__ALL__"]');
+            if (allOpt) allOpt.textContent = t('catalog_all_sheets');
+            const emptyOpt = this.catalogSheetSelector.querySelector('option[value=""]');
+            if (emptyOpt) emptyOpt.textContent = t('catalog_no_file');
+        }
+        if (this.activeSheetSelector) {
+            const emptyOpt = this.activeSheetSelector.querySelector('option[value=""]');
+            if (emptyOpt) emptyOpt.textContent = t('workspace_no_sheet');
+        }
+    },
+
     async refreshWorkspace() {
-        if (typeof eel === 'undefined' || !eel.get_workspace_tree) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (!this.currentFileName) {
+            this.showToast(t("toast_refresh_no_session"), "warning");
+            return;
+        }
+
+        if (this.isDirty) {
+            this.pendingAction = { type: 'refresh_file' };
+            if (this.currentTemplatePath) {
+                const base = this.currentTemplatePath.split(/[/\\]/).pop();
+                this.unsavedModalMessage.innerHTML = t('unsaved_msg_refresh_update', { template: this.escapeHtml(base), file: this.escapeHtml(this.currentFileName) });
+                this.btnUnsavedSave.textContent = t("unsaved_btn_update_refresh");
+            } else {
+                this.unsavedModalMessage.innerHTML = t('unsaved_msg_refresh_save', { file: this.escapeHtml(this.currentFileName) });
+                this.btnUnsavedSave.textContent = t("unsaved_btn_save_refresh");
+            }
+            this.btnUnsavedDiscard.textContent = t("unsaved_btn_discard_refresh");
+            this.unsavedModal.classList.remove('hidden');
+        } else {
+            await this.performRefresh();
+        }
+    },
+
+    async performRefresh() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (typeof eel === 'undefined' || !eel.refresh_excel_session) {
             console.warn("Eel backend not connected.");
             return;
         }
 
         try {
-            const res = await eel.get_workspace_tree()();
+            const res = await eel.refresh_excel_session()();
             if (res && res.success) {
-                this.updateUI(res.roots);
+                this.isDirty = false;
+                this.cachedAllHeaders = res.all_headers || {};
+                this.cachedAllHeadersMeta = res.all_headers_meta || {};
+
+                // Update Active Sheet Selector
+                this.activeSheetSelector.innerHTML = '';
+                res.sheets.forEach(sheetName => {
+                    const option = document.createElement('option');
+                    option.value = sheetName;
+                    option.textContent = sheetName;
+                    if (sheetName === res.active_sheet) option.selected = true;
+                    this.activeSheetSelector.appendChild(option);
+                });
+
+                // Update Catalog Header Source Selector
+                this.catalogSheetSelector.innerHTML = '';
+                const allOpt = document.createElement('option');
+                allOpt.value = '__ALL__';
+                allOpt.textContent = t('catalog_all_sheets');
+                this.catalogSheetSelector.appendChild(allOpt);
+
+                res.sheets.forEach(sheetName => {
+                    const option = document.createElement('option');
+                    option.value = sheetName;
+                    option.textContent = sheetName;
+                    if (sheetName === res.active_sheet) option.selected = true;
+                    this.catalogSheetSelector.appendChild(option);
+                });
+
+                this.currentFileName = res.file_path.split(/[/\\]/).pop();
+                this.currentSheetName = res.active_sheet;
+                this.catalogSheetName = res.active_sheet;
+                this.currentRawHeaders = res.headers || [];
+                this.currentRawHeadersMeta = res.headers_meta || [];
+
+                this.updateTemplateBadge(res.template_path);
+                this.catalogSheetSelector.disabled = false;
+                this.sidebarSearch.disabled = false;
+                this.sidebarSearch.value = '';
+                this.collapsedNodeIds.clear();
+                this.filterAndRenderSidebar();
+                if (res.roots) {
+                    this.updateUI(res.roots);
+                }
+                this.showToast(t('toast_refreshed_session', { file: this.currentFileName }), "success");
+            } else {
+                this.showToast(res.error || t("toast_refresh_failed"), "error");
             }
         } catch (err) {
-            console.error("Error fetching workspace tree:", err);
+            this.showToast("RPC Error refreshing session: " + err, "error");
         }
     },
 
@@ -470,6 +607,7 @@ const App = {
         TreeRenderer.renderTree(roots, this.treeViewEl, this.collapsedNodeIds);
         TreeRenderer.renderPaths(roots, this.pathListEl);
 
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         let totalNodes = 0;
         function countNodes(node) {
             totalNodes++;
@@ -477,7 +615,7 @@ const App = {
         }
         if (roots) roots.forEach(countNodes);
 
-        this.nodeCountBadge.textContent = `${totalNodes} Nodes`;
+        this.nodeCountBadge.textContent = t('node_count', { count: totalNodes });
     },
 
     // Feature 011: Expand All and Collapse All Global Controls
@@ -502,11 +640,13 @@ const App = {
 
     // Feature 002, 006 & 015: Excel File Import & Dual-Selector Sheet Management
     async handleImportExcelFile(filePath) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         try {
             const res = await eel.import_excel_file(filePath)();
             if (res.success) {
                 this.isDirty = false;
                 this.cachedAllHeaders = res.all_headers || {};
+                this.cachedAllHeadersMeta = res.all_headers_meta || {};
 
                 // Populate Active Workspace Sheet Selector
                 this.activeSheetSelector.innerHTML = '';
@@ -522,7 +662,7 @@ const App = {
                 this.catalogSheetSelector.innerHTML = '';
                 const allOpt = document.createElement('option');
                 allOpt.value = '__ALL__';
-                allOpt.textContent = 'All Sheets (Combined)';
+                allOpt.textContent = t('catalog_all_sheets');
                 this.catalogSheetSelector.appendChild(allOpt);
 
                 res.sheets.forEach(sheetName => {
@@ -537,6 +677,7 @@ const App = {
                 this.currentSheetName = res.active_sheet;
                 this.catalogSheetName = res.active_sheet;
                 this.currentRawHeaders = res.headers || [];
+                this.currentRawHeadersMeta = res.headers_meta || [];
 
                 this.updateTemplateBadge(res.template_path);
                 this.catalogSheetSelector.disabled = false;
@@ -547,9 +688,9 @@ const App = {
                 if (res.roots) {
                     this.updateUI(res.roots);
                 }
-                this.showToast(`Imported Excel session: ${res.sheets.length} sheets found.`, "success");
+                this.showToast(t('toast_imported_session', { count: res.sheets.length }), "success");
             } else {
-                this.showToast(res.error || "Failed to import Excel session.", "error");
+                this.showToast(res.error || t("toast_import_failed"), "error");
             }
         } catch (err) {
             this.showToast("RPC Error importing file: " + err, "error");
@@ -557,6 +698,7 @@ const App = {
     },
 
     async handleSwitchSheet(sheetName) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         try {
             const res = await eel.switch_active_sheet(sheetName)();
             if (res.success) {
@@ -571,9 +713,9 @@ const App = {
                 if (res.roots) {
                     this.updateUI(res.roots);
                 }
-                this.showToast(`Switched active workspace sheet to '${sheetName}'.`, "success");
+                this.showToast(t('toast_switched_sheet', { sheet: sheetName }), "success");
             } else {
-                this.showToast(res.error || "Failed to switch sheet.", "error");
+                this.showToast(res.error || t("toast_switch_failed"), "error");
             }
         } catch (err) {
             this.showToast("RPC Error switching sheet: " + err, "error");
@@ -581,25 +723,36 @@ const App = {
     },
 
     filterAndRenderSidebar() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         let headerItems = [];
         const sourceSheet = this.catalogSheetName || this.currentSheetName;
 
         if (sourceSheet === '__ALL__') {
-            // Aggregate headers from all cached sheets with sheet tags
-            Object.entries(this.cachedAllHeaders).forEach(([sName, headers]) => {
-                headers.forEach(h => {
-                    headerItems.push({ label: h, sheet: sName });
+            // Aggregate headers from all cached sheets with sheet tags and data types
+            if (this.cachedAllHeadersMeta && Object.keys(this.cachedAllHeadersMeta).length > 0) {
+                Object.entries(this.cachedAllHeadersMeta).forEach(([sName, items]) => {
+                    items.forEach(it => {
+                        headerItems.push({ label: it.name, type: it.type || 'Text', sheet: sName });
+                    });
                 });
-            });
+            } else {
+                Object.entries(this.cachedAllHeaders).forEach(([sName, headers]) => {
+                    headers.forEach(h => {
+                        headerItems.push({ label: h, type: 'Text', sheet: sName });
+                    });
+                });
+            }
+        } else if (this.cachedAllHeadersMeta && this.cachedAllHeadersMeta[sourceSheet]) {
+            headerItems = this.cachedAllHeadersMeta[sourceSheet].map(it => ({ label: it.name, type: it.type || 'Text', sheet: null }));
         } else if (this.cachedAllHeaders && this.cachedAllHeaders[sourceSheet]) {
-            headerItems = this.cachedAllHeaders[sourceSheet].map(h => ({ label: h, sheet: null }));
+            headerItems = this.cachedAllHeaders[sourceSheet].map(h => ({ label: h, type: 'Text', sheet: null }));
         } else {
-            headerItems = this.currentRawHeaders.map(h => ({ label: h, sheet: null }));
+            headerItems = this.currentRawHeaders.map(h => ({ label: h, type: 'Text', sheet: null }));
         }
 
         const query = this.sidebarSearch.value.trim().toLowerCase();
         const filtered = query
-            ? headerItems.filter(item => item.label.toLowerCase().includes(query) || (item.sheet && item.sheet.toLowerCase().includes(query)))
+            ? headerItems.filter(item => item.label.toLowerCase().includes(query) || (item.sheet && item.sheet.toLowerCase().includes(query)) || (item.type && item.type.toLowerCase().includes(query)))
             : headerItems;
 
         this.sidebarHeaderList.innerHTML = '';
@@ -608,7 +761,7 @@ const App = {
             this.sidebarEmptyState.classList.remove('hidden');
             this.sidebarEmptyState.style.display = '';
             this.sidebarHeaderList.classList.add('hidden');
-            this.headerCountBadge.textContent = "0 Headers";
+            this.headerCountBadge.textContent = t('header_count', { count: 0 });
             return;
         }
 
@@ -620,13 +773,18 @@ const App = {
             const itemEl = document.createElement('div');
             itemEl.className = 'sidebar-header-item';
             itemEl.dataset.headerLabel = item.label;
+            itemEl.dataset.dataType = item.type || 'Text';
 
             const sheetTagHtml = item.sheet ? `<span class="header-sheet-tag">${this.escapeHtml(item.sheet)}</span>` : '';
+            const typeTagHtml = `<span class="header-type-tag">${this.escapeHtml(item.type || 'Text')}</span>`;
 
             itemEl.innerHTML = `
-                <span class="header-title">${this.escapeHtml(item.label)}</span>
-                ${sheetTagHtml}
-                <span class="drag-badge" title="Drag to tree constructor">
+                <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1;">
+                    <span class="header-title">${this.escapeHtml(item.label)}</span>
+                    ${typeTagHtml}
+                    ${sheetTagHtml}
+                </div>
+                <span class="drag-badge" title="${t('tooltip_drag_handle')}">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
                         <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
@@ -638,7 +796,7 @@ const App = {
             this.sidebarHeaderList.appendChild(itemEl);
         });
 
-        this.headerCountBadge.textContent = `${filtered.length} Headers`;
+        this.headerCountBadge.textContent = t('header_count', { count: filtered.length });
     },
 
     async handleDropPayload(payload, targetId, zone) {
@@ -650,21 +808,22 @@ const App = {
         }
 
         if (payload.isNew) {
-            await this.handleAddHeaderNode(payload.label, targetId, zone);
+            await this.handleAddHeaderNode(payload.label, targetId, zone, payload.dataType || 'Text');
         } else if (payload.id) {
             if (!targetId || !zone) return;
             await this.handleMoveNode(payload.id, targetId, zone);
         }
     },
 
-    // Feature 002: Add Header from Non-Destructive Drag and Drop with zone positioning
-    async handleAddHeaderNode(headerLabel, targetId, zone) {
+    // Feature 002 & 020: Add Header from Non-Destructive Drag and Drop with zone positioning and data type inheritance
+    async handleAddHeaderNode(headerLabel, targetId, zone, dataType = "Text") {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         try {
-            const res = await eel.add_node(null, headerLabel, false, targetId, zone)();
+            const res = await eel.add_node(null, headerLabel, false, targetId, zone, dataType)();
             if (res.success) {
                 this.isDirty = true;
                 this.updateUI(res.roots);
-                this.showToast(`Added header node '${headerLabel}' into tree structure.`, "success");
+                this.showToast(t('toast_header_added', { name: headerLabel, type: dataType }), "success");
             } else {
                 this.showToast(res.error || "Failed to add header node.", "error");
             }
@@ -675,8 +834,9 @@ const App = {
 
     // Feature 002 & 014: Reconstructed Tree Row 1 Horizontal Clean Template Export
     async handleExportReorganizedRow1(outputPath) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         if (!this.currentSheetName) {
-            this.showToast("Please import an Excel file session first.", "warning");
+            this.showToast(t("toast_refresh_no_session"), "warning");
             return false;
         }
 
@@ -685,7 +845,7 @@ const App = {
         const leafPaths = Array.from(pathElements).map(el => el.textContent.trim()).filter(Boolean);
 
         if (leafPaths.length === 0) {
-            this.showToast("Tree is empty. Add nodes before exporting.", "warning");
+            this.showToast(t("toast_tree_empty_export"), "warning");
             return false;
         }
 
@@ -693,10 +853,10 @@ const App = {
             const res = await eel.export_reorganized_row1(this.currentSheetName, leafPaths, outputPath)();
             if (res.success) {
                 this.isDirty = false;
-                this.showToast(`Exported ${res.column_count} leaf path columns to '${this.currentSheetName}' in Row 1.`, "success");
+                this.showToast(t('toast_template_exported', { template: outputPath }), "success");
                 return true;
             } else {
-                this.showToast(res.error || "Failed to export Row 1 paths.", "error");
+                this.showToast(res.error || t("toast_template_failed"), "error");
                 return false;
             }
         } catch (err) {
@@ -706,23 +866,45 @@ const App = {
     },
 
     openAddModal(parentId, title) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         this.modalMode = 'create';
         this.activeParentIdForModal = parentId;
         this.activeNodeIdForEdit = null;
-        this.modalTitle.textContent = title || "Create Node";
-        if (this.btnModalSubmit) this.btnModalSubmit.textContent = "Create Node";
+        this.modalTitle.textContent = title || t("modal_create_title");
+        if (this.btnModalSubmit) this.btnModalSubmit.textContent = t("modal_btn_create");
         this.inputNodeName.value = '';
+        if (this.selectNodeType) {
+            this.selectNodeType.value = 'Text';
+            this.selectNodeType.disabled = false;
+            this.selectNodeType.classList.remove('hidden');
+        }
+        if (this.folderTypeHint) this.folderTypeHint.classList.add('hidden');
         this.nodeModal.classList.remove('hidden');
         this.inputNodeName.focus();
     },
 
-    openEditModal(nodeId, currentName) {
+    openEditModal(nodeId, currentName, currentType = 'Text', isFolder = false) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         this.modalMode = 'edit';
         this.activeNodeIdForEdit = nodeId;
         this.activeParentIdForModal = null;
-        this.modalTitle.textContent = "Edit Node Name";
-        if (this.btnModalSubmit) this.btnModalSubmit.textContent = "Save Changes";
+        this.modalTitle.textContent = isFolder ? t("modal_edit_folder_title") : t("modal_edit_element_title");
+        if (this.btnModalSubmit) this.btnModalSubmit.textContent = t("modal_btn_save");
         this.inputNodeName.value = currentName || '';
+
+        if (this.selectNodeType) {
+            this.selectNodeType.value = currentType || 'Text';
+            if (isFolder) {
+                this.selectNodeType.disabled = true;
+                this.selectNodeType.classList.add('hidden');
+                if (this.folderTypeHint) this.folderTypeHint.classList.remove('hidden');
+            } else {
+                this.selectNodeType.disabled = false;
+                this.selectNodeType.classList.remove('hidden');
+                if (this.folderTypeHint) this.folderTypeHint.classList.add('hidden');
+            }
+        }
+
         this.nodeModal.classList.remove('hidden');
         this.inputNodeName.focus();
         this.inputNodeName.select();
@@ -736,34 +918,37 @@ const App = {
     },
 
     async submitModal() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         const name = this.inputNodeName.value.trim();
         if (!name) {
-            this.showToast("Node name cannot be empty.", "warning");
+            this.showToast(t("toast_name_empty"), "warning");
             return;
         }
 
+        const selectedType = (this.selectNodeType && !this.selectNodeType.disabled) ? this.selectNodeType.value : 'Text';
+
         if (this.modalMode === 'edit') {
             try {
-                const res = await eel.rename_node(this.activeNodeIdForEdit, name)();
+                const res = await eel.update_node(this.activeNodeIdForEdit, name, selectedType)();
                 if (res.success) {
                     this.isDirty = true;
                     this.updateUI(res.roots);
                     this.closeModal();
-                    this.showToast(`Node renamed to '${name}'.`, "success");
+                    this.showToast(t('toast_node_updated', { name: name }), "success");
                 } else {
-                    this.showToast(res.error || "Failed to rename node.", "error");
+                    this.showToast(res.error || "Failed to update node.", "error");
                 }
             } catch (err) {
-                this.showToast("RPC Error renaming node: " + err, "error");
+                this.showToast("RPC Error updating node: " + err, "error");
             }
         } else {
             try {
-                const res = await eel.add_node(this.activeParentIdForModal, name)();
+                const res = await eel.add_node(this.activeParentIdForModal, name, true, null, null, selectedType)();
                 if (res.success) {
                     this.isDirty = true;
                     this.updateUI(res.roots);
                     this.closeModal();
-                    this.showToast(`Node '${name}' created successfully.`, "success");
+                    this.showToast(t('toast_node_created', { name: name }), "success");
                 } else {
                     this.showToast(res.error || "Failed to add node.", "error");
                 }
@@ -774,13 +959,14 @@ const App = {
     },
 
     async handleMoveNode(nodeId, targetId, zone) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         try {
             const res = await eel.move_node(nodeId, targetId, zone)();
             if (res.success) {
                 this.isDirty = true;
                 this.updateUI(res.roots);
             } else {
-                this.showToast(res.rejection_reason || "Move rejected by backend.", "warning");
+                this.showToast(res.rejection_reason || t("toast_move_rejected"), "warning");
             }
         } catch (err) {
             this.showToast("RPC Error moving node: " + err, "error");
@@ -788,14 +974,15 @@ const App = {
     },
 
     async handleDeleteNode(nodeId) {
-        if (!confirm("Are you sure you want to delete this node and all its contents?")) return;
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (!confirm(t("confirm_delete"))) return;
 
         try {
             const res = await eel.delete_node(nodeId)();
             if (res.success) {
                 this.isDirty = true;
                 this.updateUI(res.roots);
-                this.showToast("Node deleted.", "success");
+                this.showToast(t("toast_node_deleted"), "success");
             } else {
                 this.showToast(res.error || "Failed to delete node.", "error");
             }
