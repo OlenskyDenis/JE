@@ -123,6 +123,16 @@ body {
     background-color: var(--color-secondary-hover);
 }
 
+.btn-danger-outline {
+    background-color: transparent;
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+}
+.btn-danger-outline:hover {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
 .btn-icon {
     padding: 8px;
     background-color: var(--bg-card);
@@ -133,18 +143,115 @@ body {
     background-color: var(--bg-card-hover);
 }
 
-/* Workspace Main Grid */
+/* Workspace Main Layout */
 .workspace-main {
-    display: grid;
-    grid-template-columns: 1fr 340px;
+    display: flex;
+    flex-direction: row;
     gap: 16px;
     padding: 16px;
     flex: 1;
     overflow: hidden;
+    position: relative;
 }
 
-.workspace-main.three-column-layout {
-    grid-template-columns: 1fr 280px 300px;
+.tree-panel {
+    flex: 1 1 0%;
+    min-width: 320px;
+    overflow: hidden;
+}
+
+.unified-sidebar-panel {
+    position: relative;
+    width: var(--sidebar-width, 340px);
+    min-width: 260px;
+    max-width: 80vw;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Left-Edge Draggable Resizer Splitter */
+.resizer-handle-left {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    z-index: 20;
+    background: transparent;
+    transition: background-color 0.15s ease;
+}
+
+.resizer-handle-left:hover,
+.resizer-handle-left.active {
+    background-color: var(--color-primary);
+}
+
+/* Unified Sidebar Tab Bar */
+.sidebar-tab-header {
+    display: flex;
+    background-color: var(--bg-panel-header);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 4px;
+}
+
+.sidebar-tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 10px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.825rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sidebar-tab-btn:hover {
+    color: var(--text-primary);
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-tab-btn.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    background-color: rgba(56, 189, 248, 0.06);
+}
+
+.sidebar-tab-btn .badge-count {
+    font-size: 0.7rem;
+    padding: 1px 7px;
+}
+
+.sidebar-tab-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.sidebar-tab-content.hidden {
+    display: none !important;
+}
+
+/* Global Resizing State */
+body.is-resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+body.is-resizing * {
+    user-select: none !important;
 }
 
 .btn-sm {
@@ -194,6 +301,104 @@ body {
     padding: 2px 10px;
     border-radius: 12px;
     border: 1px solid var(--border-color);
+}
+
+.workspace-sheet-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: rgba(59, 130, 246, 0.12);
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.workspace-sheet-picker:hover,
+.workspace-sheet-picker:focus-within {
+    border-color: rgba(59, 130, 246, 0.6);
+    background-color: rgba(59, 130, 246, 0.18);
+}
+
+.workspace-sheet-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #60a5fa;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    user-select: none;
+    margin: 0;
+}
+
+.workspace-sheet-select {
+    background: transparent;
+    border: none;
+    color: #93c5fd;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 1px 4px;
+    cursor: pointer;
+    outline: none;
+    max-width: 180px;
+    text-overflow: ellipsis;
+}
+
+.workspace-sheet-select:disabled {
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.workspace-sheet-select option {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+}
+
+.badge-sheet {
+    font-size: 0.75rem;
+    font-weight: 600;
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    padding: 3px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.02em;
+}
+
+.badge-template {
+    font-size: 0.75rem;
+    font-weight: 500;
+    background-color: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+    padding: 4px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.01em;
+    font-family: var(--font-mono);
+}
+
+.form-help-text {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+    margin-top: 2px;
+}
+
+.header-sheet-tag {
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background-color: var(--bg-main);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    margin-left: auto;
 }
 
 .panel-body {

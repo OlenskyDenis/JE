@@ -24,6 +24,7 @@
                 <h1>Database Hierarchy Creator</h1>
             </div>
             <div class="toolbar-actions">
+                <span class="badge-template" id="templateStatusBadge" title="Active Bound Template File for 1-Click Sync">Template: (None)</span>
                 <button id="btnImportExcel" class="btn btn-secondary">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                     Import Excel
@@ -38,13 +39,19 @@
             </div>
         </header>
 
-        <!-- Main Workspace Grid -->
-        <main class="workspace-main three-column-layout">
+        <!-- Main Workspace: 2-Column Flex Layout with Tree Canvas + Unified Resizable Tabbed Sidebar -->
+        <main class="workspace-main">
             <!-- Left Panel: Interactive Tree Canvas -->
             <section class="panel tree-panel">
                 <div class="panel-header">
                     <div class="panel-header-title">
                         <h2>Hierarchy Constructor Workspace</h2>
+                        <div class="workspace-sheet-picker">
+                            <label for="activeSheetSelector" class="workspace-sheet-label">Sheet:</label>
+                            <select id="activeSheetSelector" class="workspace-sheet-select" title="Active Workspace Sheet">
+                                <option value="">(No Sheet)</option>
+                            </select>
+                        </div>
                         <span class="badge-count" id="nodeCountBadge">0 Nodes</span>
                     </div>
                     <div class="panel-header-actions">
@@ -70,46 +77,59 @@
                 </div>
             </section>
 
-            <!-- Middle Panel: Path Preview & Inspection -->
-            <section class="panel path-panel">
-                <div class="panel-header">
-                    <h2>Leaf Node Absolute Paths</h2>
-                    <span class="badge-count" id="pathCountBadge">0 Paths</span>
+            <!-- Right Panel: Unified Tabbed Sidebar with Draggable Left Edge Resizer -->
+            <section class="panel unified-sidebar-panel" id="unifiedSidebar">
+                <!-- Draggable Left-Edge Resizer Splitter -->
+                <div class="resizer-handle-left" id="sidebarResizer" title="Drag to resize sidebar (Double-click to reset)"></div>
+
+                <!-- Unified Sidebar Tab Bar -->
+                <div class="sidebar-tab-header">
+                    <button class="sidebar-tab-btn active" id="tabBtnCatalog" data-tab="catalog" title="Excel Header Catalog">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>Header Catalog</span>
+                        <span class="badge-count" id="headerCountBadge">0 Headers</span>
+                    </button>
+                    <button class="sidebar-tab-btn" id="tabBtnPaths" data-tab="paths" title="Export Preview (Row 1 Paths)">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                        <span>Export Preview</span>
+                        <span class="badge-count" id="pathCountBadge">0 Paths</span>
+                    </button>
                 </div>
-                <div class="panel-body">
-                    <div id="pathList" class="path-list-container">
-                        <div class="empty-state">
-                            <p>No leaf paths generated yet</p>
+
+                <!-- Tab Content: Excel Header Catalog -->
+                <div class="sidebar-tab-content active" id="tabContentCatalog">
+                    <div class="sidebar-controls">
+                        <div class="form-group">
+                            <label for="catalogSheetSelector">Browse Headers From</label>
+                            <select id="catalogSheetSelector" class="form-control" disabled>
+                                <option value="">No Excel file loaded</option>
+                            </select>
+                            <small class="form-help-text">Select source to drag headers without changing the active workspace tree.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="sidebarSearch">Search Headers</label>
+                            <input type="text" id="sidebarSearch" class="form-control" placeholder="Filter headers in real-time..." disabled>
                         </div>
                     </div>
+                    <div class="panel-body sidebar-body">
+                        <div id="sidebarEmptyState" class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <p>No headers loaded</p>
+                            <small>Click "Import Excel" to extract Row 1 headers from any sheet.</small>
+                        </div>
+                        <div id="sidebarHeaderList" class="sidebar-header-list hidden"></div>
+                    </div>
                 </div>
-            </section>
 
-            <!-- Right Panel: Excel Header Catalog Sidebar (Feature 002) -->
-            <section class="panel sidebar-panel">
-                <div class="panel-header">
-                    <h2>Excel Header Catalog</h2>
-                    <span class="badge-count" id="headerCountBadge">0 Headers</span>
-                </div>
-                <div class="sidebar-controls">
-                    <div class="form-group">
-                        <label for="sheetSelector">Sheet Manager</label>
-                        <select id="sheetSelector" class="form-control">
-                            <option value="">No Excel file loaded</option>
-                        </select>
+                <!-- Tab Content: Leaf Node Absolute Paths (Export Preview) -->
+                <div class="sidebar-tab-content hidden" id="tabContentPaths">
+                    <div class="panel-body">
+                        <div id="pathList" class="path-list-container">
+                            <div class="empty-state">
+                                <p>No leaf paths generated yet</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="sidebarSearch">Search Headers</label>
-                        <input type="text" id="sidebarSearch" class="form-control" placeholder="Filter headers in real-time..." disabled>
-                    </div>
-                </div>
-                <div class="panel-body sidebar-body">
-                    <div id="sidebarEmptyState" class="empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <p>No headers loaded</p>
-                        <small>Click "Import Excel" to extract Row 1 headers from any sheet.</small>
-                    </div>
-                    <div id="sidebarHeaderList" class="sidebar-header-list hidden"></div>
                 </div>
             </section>
         </main>
@@ -133,6 +153,24 @@
                 <div class="modal-footer">
                     <button id="btnModalCancel" class="btn btn-secondary">Cancel</button>
                     <button id="btnModalSubmit" class="btn btn-primary">Create Node</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unsaved Changes Modal -->
+        <div id="unsavedModal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3>Unsaved Changes</h3>
+                    <button id="unsavedModalClose" class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="unsavedModalMessage">You have unsaved changes in the Hierarchy Constructor Workspace. Do you want to save your changes before switching sheets?</p>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnUnsavedCancel" class="btn btn-secondary">Cancel</button>
+                    <button id="btnUnsavedDiscard" class="btn btn-danger-outline">Discard & Switch</button>
+                    <button id="btnUnsavedSave" class="btn btn-primary">Save & Switch</button>
                 </div>
             </div>
         </div>

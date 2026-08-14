@@ -125,3 +125,26 @@ class TestPathParserService:
         folder = root.children[0]
         assert len(folder.children) == 1
         assert folder.children[0].name == "Item"
+
+    def test_parse_preserves_original_column_order(self):
+        """Multi-root trees and child nodes must strictly preserve original encounter sequence."""
+        paths = [
+            r"Zebra\Stripes\BlackWhite",
+            r"Beta\SecondChild",
+            r"Alpha\Sub\Item1",
+            r"Zebra\Stripes\WhiteBlack",
+            r"Beta\FirstChild"
+        ]
+        forest = PathParserService.parse_header_paths(paths)
+
+        # Roots must be in exact encounter order: Zebra, Beta, Alpha
+        assert [r.name for r in forest.root_nodes] == ["Zebra", "Beta", "Alpha"]
+
+        zebra = forest.root_nodes[0]
+        stripes = zebra.children[0]
+        # Children of Zebra\Stripes: BlackWhite first, WhiteBlack second
+        assert [c.name for c in stripes.children] == ["BlackWhite", "WhiteBlack"]
+
+        beta = forest.root_nodes[1]
+        # Children of Beta: SecondChild first, FirstChild second
+        assert [c.name for c in beta.children] == ["SecondChild", "FirstChild"]
