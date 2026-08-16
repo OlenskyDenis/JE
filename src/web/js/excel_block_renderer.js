@@ -90,7 +90,7 @@ const ExcelBlockRenderer = {
                 rowSpan,
                 isLeaf,
                 level,
-                tooltip
+                tooltip: `${tooltip}\n\n${t('tooltip_dblclick_edit')}`
             });
 
             if (!isLeaf) {
@@ -153,6 +153,10 @@ const ExcelBlockRenderer = {
                             colspan="${cell.colSpan}"
                             rowspan="${cell.rowSpan}"
                             title="${this.escapeHtml(cell.tooltip)}"
+                            data-node-id="${this.escapeHtml(cell.node.id)}"
+                            data-node-name="${this.escapeHtml(cell.node.name)}"
+                            data-data-type="${this.escapeHtml(cell.node.data_type || 'Text')}"
+                            data-is-folder="${!cell.isLeaf}"
                             data-level="${cell.level}"
                             data-is-leaf="${cell.isLeaf}">
                             <div class="matrix-cell-content">

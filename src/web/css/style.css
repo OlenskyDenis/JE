@@ -1063,6 +1063,29 @@ body.is-resizing * {
     gap: 16px;
 }
 
+.modal-batch-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #fcd34d;
+    line-height: 1.35;
+}
+
+.modal-batch-notice.hidden {
+    display: none !important;
+}
+
+.modal-batch-notice-icon {
+    color: #fbbf24;
+    flex-shrink: 0;
+}
+
 .form-group {
     display: flex;
     flex-direction: column;
@@ -1256,7 +1279,7 @@ body.is-resizing * {
     vertical-align: middle;
     transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     position: relative;
-    cursor: default;
+    cursor: pointer;
     box-sizing: border-box;
 }
 
@@ -1356,6 +1379,204 @@ body.is-resizing * {
 }
 
 .matrix-empty-state p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    max-width: 360px;
+}
+
+/* ==========================================================================
+   Unique Level Hierarchy View (Feature 028)
+   ========================================================================== */
+
+.unique-level-view {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.unique-level-view.hidden {
+    display: none !important;
+}
+
+.unique-levels-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: min-content;
+    width: 100%;
+}
+
+.level-row-container {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: border-color 0.15s ease;
+}
+
+.level-row-container:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.level-row-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 8px;
+}
+
+.level-row-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.level-tier-pill {
+    background-color: rgba(56, 189, 248, 0.15);
+    color: var(--color-primary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.level-row-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.level-badge-count {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+}
+
+.level-badge-match {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+}
+
+.level-chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.level-header-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #1e293b;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.level-header-chip:hover {
+    background-color: #273549;
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+}
+
+.level-header-chip.has-cross-match {
+    border-color: rgba(245, 158, 11, 0.4);
+    background-color: #24201a;
+}
+
+.level-header-chip.has-cross-match:hover {
+    border-color: #f59e0b;
+    background-color: #332b1f;
+}
+
+.chip-title {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.chip-freq-badge {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.chip-cross-badge {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: #fcd34d;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+
+/* Synchronized Hover Highlighting */
+.level-header-chip.highlight-match-sync {
+    border-color: #f59e0b !important;
+    background-color: #382c16 !important;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.55) !important;
+    transform: translateY(-2px) scale(1.03) !important;
+    z-index: 10;
+}
+
+/* Unique Levels Empty State */
+.unique-levels-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.unique-levels-empty-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    opacity: 0.6;
+}
+
+.unique-levels-empty-state h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.unique-levels-empty-state p {
     font-size: 0.85rem;
     color: var(--text-muted);
     max-width: 360px;

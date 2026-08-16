@@ -41,7 +41,7 @@ const App = {
         this.activeNodeIdForEdit = null;
 
         const savedView = localStorage.getItem('je_workspace_view_mode');
-        this.currentViewMode = (savedView === 'matrix') ? 'matrix' : 'tree';
+        this.currentViewMode = (savedView === 'matrix' || savedView === 'unique_levels') ? savedView : 'tree';
 
         this.bindDOM();
         this.bindEvents();
@@ -79,6 +79,8 @@ const App = {
         this.groupNodeType = document.getElementById('groupNodeType');
         this.selectNodeType = document.getElementById('selectNodeType');
         this.folderTypeHint = document.getElementById('folderTypeHint');
+        this.modalBatchNotice = document.getElementById('modalBatchNotice');
+        this.modalBatchNoticeText = document.getElementById('modalBatchNoticeText');
         this.btnModalSubmit = document.getElementById('btnModalSubmit');
 
         // Toolbar Collapse / Expand & Add Root buttons (Feature 011 & 025)
@@ -86,10 +88,12 @@ const App = {
         this.btnCollapseAll = document.getElementById('btnCollapseAll');
         this.btnAddRootHeader = document.getElementById('btnAddRootHeader');
 
-        // View Mode Switcher & Excel Block View (Feature 027)
+        // View Mode Switcher, Excel Block View & Unique Levels View (Feature 027 & 028)
         this.btnViewTree = document.getElementById('btnViewTree');
         this.btnViewMatrix = document.getElementById('btnViewMatrix');
+        this.btnViewUniqueLevels = document.getElementById('btnViewUniqueLevels');
         this.excelBlockViewEl = document.getElementById('excelBlockView');
+        this.uniqueLevelViewEl = document.getElementById('uniqueLevelView');
 
         // Settings Button & Modal (Feature 026)
         this.btnSettings = document.getElementById('btnSettings');
@@ -183,12 +187,15 @@ const App = {
             this.btnCollapseAll.addEventListener('click', () => this.collapseAll());
         }
 
-        // Feature 027: View Mode Switcher (Tree vs Excel Block Matrix)
+        // Feature 027 & 028: View Mode Switcher (Tree vs Excel Block Matrix vs Unique Levels)
         if (this.btnViewTree) {
             this.btnViewTree.addEventListener('click', () => this.switchViewMode('tree'));
         }
         if (this.btnViewMatrix) {
             this.btnViewMatrix.addEventListener('click', () => this.switchViewMode('matrix'));
+        }
+        if (this.btnViewUniqueLevels) {
+            this.btnViewUniqueLevels.addEventListener('click', () => this.switchViewMode('unique_levels'));
         }
 
         // Helper: Native OS Open File Dialog for Excel Import
@@ -423,7 +430,7 @@ const App = {
             }
         });
 
-        // Feature 019 & 020: Double-click on node label or badge to edit
+        // Feature 019 & 020: Double-click on node label or badge to edit in Tree View
         this.treeViewEl.addEventListener('dblclick', (e) => {
             const targetEl = e.target.closest('.node-title, .node-type-badge');
             if (targetEl) {
@@ -438,6 +445,38 @@ const App = {
                 }
             }
         });
+
+        // Feature 028: Double-click to edit in Excel Blocks View
+        if (this.excelBlockViewEl) {
+            this.excelBlockViewEl.addEventListener('dblclick', (e) => {
+                const cell = e.target.closest('.matrix-cell');
+                if (cell && cell.dataset.nodeId) {
+                    const nodeId = cell.dataset.nodeId;
+                    const currentName = cell.dataset.nodeName || '';
+                    const currentType = cell.dataset.dataType || 'Text';
+                    const isFolder = cell.dataset.isFolder === 'true';
+                    this.openEditModal(nodeId, currentName, currentType, isFolder);
+                }
+            });
+        }
+
+        // Feature 028: Double-click to edit in Unique Levels View with batch support
+        if (this.uniqueLevelViewEl) {
+            this.uniqueLevelViewEl.addEventListener('dblclick', (e) => {
+                const chip = e.target.closest('.level-header-chip');
+                if (chip && chip.dataset.nodeId) {
+                    const nodeId = chip.dataset.nodeId;
+                    const currentName = chip.dataset.nodeName || '';
+                    const currentType = chip.dataset.dataType || 'Text';
+                    const isFolder = chip.dataset.isFolder === 'true';
+                    const rawIds = chip.dataset.nodeIds || nodeId;
+                    const nodeIds = rawIds.split(',').map(s => s.trim()).filter(Boolean);
+                    const count = parseInt(chip.dataset.count, 10) || nodeIds.length || 1;
+                    const batchMeta = { count, nodeIds };
+                    this.openEditModal(nodeId, currentName, currentType, isFolder, batchMeta);
+                }
+            });
+        }
 
 
         // Modal event handlers
@@ -719,7 +758,7 @@ const App = {
     },
 
     switchViewMode(mode) {
-        if (mode !== 'tree' && mode !== 'matrix') return;
+        if (mode !== 'tree' && mode !== 'matrix' && mode !== 'unique_levels') return;
         this.currentViewMode = mode;
         try {
             localStorage.setItem('je_workspace_view_mode', mode);
@@ -727,22 +766,23 @@ const App = {
             console.error('Failed to save view mode preference:', e);
         }
 
-        if (this.btnViewTree && this.btnViewMatrix) {
-            if (mode === 'tree') {
-                this.btnViewTree.classList.add('active');
-                this.btnViewMatrix.classList.remove('active');
-                if (this.treeViewEl) this.treeViewEl.classList.remove('hidden');
-                if (this.excelBlockViewEl) this.excelBlockViewEl.classList.add('hidden');
-            } else {
-                this.btnViewMatrix.classList.add('active');
-                this.btnViewTree.classList.remove('active');
-                if (this.treeViewEl) this.treeViewEl.classList.add('hidden');
-                if (this.excelBlockViewEl) {
-                    this.excelBlockViewEl.classList.remove('hidden');
-                    if (window.ExcelBlockRenderer) {
-                        ExcelBlockRenderer.renderMatrix(this.currentRoots, this.excelBlockViewEl);
-                    }
-                }
+        if (this.btnViewTree) this.btnViewTree.classList.toggle('active', mode === 'tree');
+        if (this.btnViewMatrix) this.btnViewMatrix.classList.toggle('active', mode === 'matrix');
+        if (this.btnViewUniqueLevels) this.btnViewUniqueLevels.classList.toggle('active', mode === 'unique_levels');
+
+        if (this.treeViewEl) this.treeViewEl.classList.toggle('hidden', mode !== 'tree');
+
+        if (this.excelBlockViewEl) {
+            this.excelBlockViewEl.classList.toggle('hidden', mode !== 'matrix');
+            if (mode === 'matrix' && window.ExcelBlockRenderer) {
+                ExcelBlockRenderer.renderMatrix(this.currentRoots, this.excelBlockViewEl);
+            }
+        }
+
+        if (this.uniqueLevelViewEl) {
+            this.uniqueLevelViewEl.classList.toggle('hidden', mode !== 'unique_levels');
+            if (mode === 'unique_levels' && window.UniqueLevelRenderer) {
+                UniqueLevelRenderer.renderUniqueLevels(this.currentRoots, this.uniqueLevelViewEl);
             }
         }
     },
@@ -753,6 +793,9 @@ const App = {
         TreeRenderer.renderPaths(roots, this.pathListEl);
         if (window.ExcelBlockRenderer && this.excelBlockViewEl) {
             ExcelBlockRenderer.renderMatrix(roots, this.excelBlockViewEl);
+        }
+        if (window.UniqueLevelRenderer && this.uniqueLevelViewEl) {
+            UniqueLevelRenderer.renderUniqueLevels(roots, this.uniqueLevelViewEl);
         }
 
         const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
@@ -1031,14 +1074,27 @@ const App = {
         this.inputNodeName.focus();
     },
 
-    openEditModal(nodeId, currentName, currentType = 'Text', isFolder = false) {
+    openEditModal(nodeId, currentName, currentType = 'Text', isFolder = false, batchMeta = null) {
         const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         this.modalMode = 'edit';
         this.activeNodeIdForEdit = nodeId;
         this.activeParentIdForModal = null;
+        this.activeBatchMeta = batchMeta;
+
         this.modalTitle.textContent = isFolder ? t("modal_edit_folder_title") : t("modal_edit_element_title");
         if (this.btnModalSubmit) this.btnModalSubmit.textContent = t("modal_btn_save");
         this.inputNodeName.value = currentName || '';
+
+        if (this.modalBatchNotice) {
+            if (batchMeta && batchMeta.count > 1) {
+                this.modalBatchNotice.classList.remove('hidden');
+                if (this.modalBatchNoticeText) {
+                    this.modalBatchNoticeText.textContent = t("modal_batch_edit_notice", { count: batchMeta.count, name: currentName });
+                }
+            } else {
+                this.modalBatchNotice.classList.add('hidden');
+            }
+        }
 
         if (this.selectNodeType) {
             this.selectNodeType.value = currentType || 'Text';
@@ -1060,8 +1116,12 @@ const App = {
 
     closeModal() {
         this.nodeModal.classList.add('hidden');
+        if (this.modalBatchNotice) {
+            this.modalBatchNotice.classList.add('hidden');
+        }
         this.activeParentIdForModal = null;
         this.activeNodeIdForEdit = null;
+        this.activeBatchMeta = null;
         this.modalMode = 'create';
     },
 
@@ -1076,18 +1136,38 @@ const App = {
         const selectedType = (this.selectNodeType && !this.selectNodeType.disabled) ? this.selectNodeType.value : 'Text';
 
         if (this.modalMode === 'edit') {
-            try {
-                const res = await eel.update_node(this.activeNodeIdForEdit, name, selectedType)();
-                if (res.success) {
-                    this.isDirty = true;
-                    this.updateUI(res.roots);
-                    this.closeModal();
-                    this.showToast(t('toast_node_updated', { name: name }), "success");
-                } else {
-                    this.showToast(res.error || "Failed to update node.", "error");
+            if (this.activeBatchMeta && this.activeBatchMeta.nodeIds && this.activeBatchMeta.nodeIds.length > 1) {
+                try {
+                    let lastRes = null;
+                    for (const nId of this.activeBatchMeta.nodeIds) {
+                        lastRes = await eel.update_node(nId, name, selectedType)();
+                    }
+                    if (lastRes && lastRes.success) {
+                        this.isDirty = true;
+                        this.updateUI(lastRes.roots);
+                        const count = this.activeBatchMeta.nodeIds.length;
+                        this.closeModal();
+                        this.showToast(t('toast_batch_nodes_updated', { count: count, name: name }), "success");
+                    } else {
+                        this.showToast((lastRes && lastRes.error) || "Failed to update nodes.", "error");
+                    }
+                } catch (err) {
+                    this.showToast("RPC Error updating nodes: " + err, "error");
                 }
-            } catch (err) {
-                this.showToast("RPC Error updating node: " + err, "error");
+            } else {
+                try {
+                    const res = await eel.update_node(this.activeNodeIdForEdit, name, selectedType)();
+                    if (res.success) {
+                        this.isDirty = true;
+                        this.updateUI(res.roots);
+                        this.closeModal();
+                        this.showToast(t('toast_node_updated', { name: name }), "success");
+                    } else {
+                        this.showToast(res.error || "Failed to update node.", "error");
+                    }
+                } catch (err) {
+                    this.showToast("RPC Error updating node: " + err, "error");
+                }
             }
         } else {
             try {
