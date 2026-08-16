@@ -2,7 +2,6 @@
 
 from typing import List, Optional, Dict, Any
 from src.hierarchy_lib.models.node import HierarchyNode
-from src.hierarchy_lib.services.settings_service import SettingsService
 
 
 class WorkspaceForest:
@@ -99,7 +98,7 @@ class WorkspaceForest:
 
     def get_all_leaf_paths(self, delimiter: Optional[str] = None) -> List[str]:
         """Traverses all trees and collects absolute paths for all leaf nodes (nodes with 0 children)."""
-        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
+        delim = delimiter if delimiter is not None else "\\"
         paths: List[str] = []
 
         def _traverse(component: HierarchyNode):
@@ -116,7 +115,7 @@ class WorkspaceForest:
 
     def to_dict(self, delimiter: Optional[str] = None) -> Dict[str, Any]:
         """Serializes all root trees to dictionary DTO using specified or active delimiter."""
-        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
+        delim = delimiter if delimiter is not None else "\\"
         return {
             "roots": [root.to_dict(delimiter=delim) for root in self.root_nodes]
         }

@@ -1023,39 +1023,6 @@ const App = {
         }
     },
 
-    // Feature 002 & 014: Reconstructed Tree Row 1 Horizontal Clean Template Export
-    async handleExportReorganizedRow1(outputPath) {
-        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
-        if (!this.currentSheetName) {
-            this.showToast(t("toast_refresh_no_session"), "warning");
-            return false;
-        }
-
-        // Collect leaf path strings from rendered path cards
-        const pathElements = this.pathListEl.querySelectorAll('.path-card');
-        const leafPaths = Array.from(pathElements).map(el => el.textContent.trim()).filter(Boolean);
-
-        if (leafPaths.length === 0) {
-            this.showToast(t("toast_tree_empty_export"), "warning");
-            return false;
-        }
-
-        try {
-            const res = await eel.export_reorganized_row1(this.currentSheetName, leafPaths, outputPath)();
-            if (res.success) {
-                this.isDirty = false;
-                this.showToast(t('toast_template_exported', { template: outputPath }), "success");
-                return true;
-            } else {
-                this.showToast(res.error || t("toast_template_failed"), "error");
-                return false;
-            }
-        } catch (err) {
-            this.showToast("RPC Error exporting Row 1: " + err, "error");
-            return false;
-        }
-    },
-
     openAddModal(parentId, title) {
         const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         this.modalMode = 'create';

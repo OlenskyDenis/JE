@@ -1,16 +1,16 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.2.0 → 1.3.0
+Version change: 1.4.0 → 1.5.0
 Modified principles:
   - Principle I: Spec-Driven Development (SDD) & Phase Scope Enforcement
-  - Principle II: Object-Oriented Programming (OOP) & SOLID Principles
+  - Principle II (AMENDED): Object-Oriented Programming (OOP), SOLID Principles, Strict YAGNI & Downward-Only Dependency Flow (Strict prohibition of domain models importing services/adapters, and mandatory direct sunset of superseded code)
   - Principle III: Gang of Four (GoF) Design Patterns (Dynamic Composite pattern mandatory for nested hierarchies)
-  - Principle IV: Library-First Approach & Test-Driven Development (TDD)
+  - Principle IV (AMENDED): Library-First Approach, Test-Driven Development (TDD) & Test-Code Parity Gate (Mandatory pruning of zombie tests when code is retired)
   - Principle V: Self-Contained & Environment-Independent Excel Processing (No MS Excel app requirement)
-  - Principle VI (AMENDED): Mandatory System Map First-Load, Full Dependency Tracing & Proactive Redundancy Audit (Mandatory first-step loading of .specify/system_map.md for every feature/change/fix, full cross-layer dependency tracing, and pre-spec identification of obsolete/conflicting UI elements or logic)
+  - Principle VI: Mandatory System Map First-Load, Full Dependency Tracing, Proactive Redundancy Audit & Retirement Verification Gate
   - Principle VII: Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
-Added sections: First-Action Loading & Dependency Tracing in Principle VI and Workflow Controls
+Added sections: Domain Isolation Rule and Strict YAGNI in Principle II; Test-Code Parity Gate in Principle IV
 Removed sections: None
 Follow-up TODOs: None
 -->
@@ -23,29 +23,38 @@ Follow-up TODOs: None
 - This project strictly follows Spec-Driven Development (SDD) methodology.
 - **Strict Scope Prohibition**: The AI agent and developers are strictly prohibited from creating, editing, or deleting source code during the `specify`, `plan`, `tasks`, and `analyze` phases. Source code modifications are strictly reserved for the `implement` phase after specifications and task plans are finalized.
 
-### II. Object-Oriented Programming (OOP) & SOLID Principles
+### II. Object-Oriented Programming (OOP), SOLID Principles & Domain Isolation
 - All software components must be designed using Object-Oriented Programming (OOP).
 - Strict adherence to SOLID design principles is non-negotiable:
   - **Single Responsibility Principle (SRP)**: Each class/module must have only one reason to change.
-  - **Open/Closed Principle (OCP)**: Software entities must be open for extension but closed for modification.
+  - **Open/Closed Principle (OCP)**: Software entities must be open for extension but closed for modification. Centralized domain enumerations and types (e.g. `data_types.py`) must be used rather than duplicated across modules.
   - **Liskov Substitution Principle (LSP)**: Subtypes must be substitutable for their base types.
   - **Interface Segregation Principle (ISP)**: Clients must not be forced to depend on interfaces they do not use.
-  - **Dependency Inversion Principle (DIP)**: High-level modules must depend on abstractions, not concrete implementations.
+  - **Dependency Inversion Principle (DIP) & Downward-Only Dependency Flow**:
+    * Dependencies across the codebase must flow **strictly downward**: `Frontend / UI -> RPC Bridge -> Application Services -> Domain Models`.
+    * Domain models (`src/hierarchy_lib/models/`) are pure domain abstractions and **MUST NEVER import or depend on** services (`services/`), adapters (`adapters/`), or persistence configuration managers (`SettingsService`). Models must receive configuration values (such as delimiters or default types) as pure method parameters with self-contained defaults.
+  - **Strict YAGNI & Direct Sunset**:
+    * Whenever a new architectural approach or unified RPC replaces older logic, the superseded code, endpoints, methods, and files **MUST be completely deleted in the same feature iteration**.
+    * Accumulation of "phantom" deprecated wrappers, backwards-compatible empty aliases, or dead code paths is strictly forbidden.
 
 ### III. Gang of Four (GoF) Design Patterns
 - Classic Gang of Four (GoF) design patterns must be applied where appropriate to solve structural, creational, and behavioral challenges cleanly.
 - Structural hierarchies, nested nodes, and tree structures (such as folder/path trees and multi-level data nodes) **must** utilize the **Composite pattern** (via dynamic `HierarchyNode`) to unify leaf and container objects under a uniform interface.
 
-### IV. Library-First Approach & Test-Driven Development (TDD)
+### IV. Library-First Approach, Test-Driven Development (TDD) & Test-Code Parity Gate
 - **Library-First**: All core business logic—specifically hierarchy parsing, data transformations, and path-generation logic—must be implemented as standalone, decoupled libraries before any UI integration.
 - **TDD Requirement**: Unit tests must be written first and confirmed failing before writing the corresponding production logic (Red-Green-Refactor cycle).
-- Libraries must be fully covered by comprehensive unit tests prior to UI assembly or integration.
+- **Test-Code Parity Gate (No Zombie Tests)**:
+  * Tests must strictly reflect active, current functionality.
+  * When code or RPC endpoints are deleted or replaced, any tests asserting that deleted behavior **must be deleted or migrated simultaneously**.
+  * Keeping zombie tests that assert obsolete or non-functional legacy behaviors is strictly forbidden.
+  * All test suites must execute with 100% pass rate and zero third-party warning pollution.
 
 ### V. Self-Contained & Environment-Independent Excel Processing
 - Excel document reading, writing, and parsing operations must be entirely self-contained.
 - Excel processing **must run without requiring Microsoft Excel installation** or COM interop dependencies on the target host environment, utilizing streaming read-only mode for high performance.
 
-### VI. Mandatory System Map First-Load, Full Dependency Tracing & Proactive Redundancy Audit
+### VI. Mandatory System Map First-Load, Full Dependency Tracing, Proactive Redundancy Audit & Retirement Verification Gate
 - **Mandatory First Action**: For every new feature, change, or bug fix, the AI agent **MUST load and read [`.specify/system_map.md`](../system_map.md) as the very first step** before formulating any proposals, specifications, or architectural changes.
 - **Full Cross-Layer Dependency Tracing**: The agent must trace all upstream and downstream dependencies across the entire architecture stack:
   - Frontend DOM elements, styles, and controllers (`index.html`, `app.js`, `tree_renderer.js`, `drag_drop.js`)
@@ -55,6 +64,7 @@ Follow-up TODOs: None
   - Obsolete, redundant, or orphaned UI elements (e.g. unneeded form inputs, modal controls, buttons, dead listeners)
   - Duplicate or conflicting backend logic, classes, or endpoints
   - Inconsistencies between UI expectations and underlying data models
+- **Retirement Verification Gate**: Before deleting or retiring any backend class, service, RPC endpoint, or frontend controller method, the agent must perform comprehensive cross-layer grep verification across all source files and test suites. Any referencing call sites or obsolete assertions must be explicitly migrated or pruned in the same feature iteration.
 - **Continuous System Map Synchronization**: Whenever any software component, model, endpoint, or UI widget is created, modified, or retired, `.specify/system_map.md` must be updated immediately to maintain absolute ground-truth accuracy.
 
 ### VII. Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
@@ -72,7 +82,7 @@ Follow-up TODOs: None
 
 1. **Specify Phase**:
    - **Step 1 (First Action)**: Load and read [`.specify/system_map.md`](../system_map.md). Trace all component dependencies.
-   - **Step 2**: Proactively audit and flag any obsolete, redundant, or conflicting UI elements / code logic.
+   - **Step 2**: Proactively audit and flag any obsolete, redundant, or conflicting UI elements / code logic. Populate the Retirement & Cleanup Matrix.
    - **Step 3**: Perform **Red Teaming & Zero-Data Stress Testing** (Principle VII) to verify clean-slate usability and prevent deadlocks.
    - **Step 4**: Create and clarify requirements in feature specifications (`spec.md`). No source code writing.
 2. **Plan Phase**:
@@ -91,4 +101,4 @@ Follow-up TODOs: None
 - This constitution supersedes all informal team conventions or ad-hoc practices.
 - Every pull request, spec review, and task breakdown must be verified for compliance against these principles.
 
-**Version**: 1.3.0 | **Ratified**: 2026-08-13 | **Last Amended**: 2026-08-14
+**Version**: 1.5.0 | **Ratified**: 2026-08-13 | **Last Amended**: 2026-08-16

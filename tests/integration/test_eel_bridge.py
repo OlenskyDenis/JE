@@ -14,43 +14,51 @@ def setup_function():
     bridge.current_file_path = None
 
 
-def test_eel_add_and_get_workspace_tree():
+def test_eel_add_and_delete_node():
     res1 = bridge.add_node(None, "RootA", is_container=True)
     assert res1["success"] is True
     root_id = res1["node"]["id"]
 
     res2 = bridge.add_node(root_id, "ChildA", is_container=False)
     assert res2["success"] is True
+    child_id = res2["node"]["id"]
 
-    tree = bridge.get_workspace_tree()
-    assert tree["success"] is True
-    assert len(tree["roots"]) == 1
-    assert tree["roots"][0]["name"] == "RootA"
-    assert tree["roots"][0]["children"][0]["name"] == "ChildA"
-    assert tree["roots"][0]["children"][0]["absolute_path"] == "RootA\\ChildA"
+    assert len(res2["roots"]) == 1
+    assert len(res2["roots"][0]["children"]) == 1
+
+    # Delete child node
+    del_child = bridge.delete_node(child_id)
+    assert del_child["success"] is True
+    assert len(del_child["roots"][0]["children"]) == 0
+
+    # Delete root node
+    del_root = bridge.delete_node(root_id)
+    assert del_root["success"] is True
+    assert len(del_root["roots"]) == 0
 
 
-def test_eel_rename_node():
+def test_eel_update_node():
     res1 = bridge.add_node(None, "Finance", is_container=True)
     root_id = res1["node"]["id"]
     res2 = bridge.add_node(root_id, "Budget_2026", is_container=False)
     child_id = res2["node"]["id"]
 
-    # 1. Rename root node
-    rename_res = bridge.rename_node(root_id, "Accounting")
-    assert rename_res["success"] is True
-    assert rename_res["node"]["name"] == "Accounting"
-    assert rename_res["roots"][0]["name"] == "Accounting"
-    assert rename_res["roots"][0]["children"][0]["absolute_path"] == "Accounting\\Budget_2026"
+    # 1. Update node name
+    update_res = bridge.update_node(root_id, name="Accounting")
+    assert update_res["success"] is True
+    assert update_res["node"]["name"] == "Accounting"
+    assert update_res["roots"][0]["name"] == "Accounting"
+    assert update_res["roots"][0]["children"][0]["absolute_path"] == "Accounting\\Budget_2026"
 
-    # 2. Rename child node
-    rename_child = bridge.rename_node(child_id, "Annual_Budget")
-    assert rename_child["success"] is True
-    assert rename_child["roots"][0]["children"][0]["name"] == "Annual_Budget"
-    assert rename_child["roots"][0]["children"][0]["absolute_path"] == "Accounting\\Annual_Budget"
+    # 2. Update child node name and data type
+    update_child = bridge.update_node(child_id, name="Annual_Budget", data_type="Currency")
+    assert update_child["success"] is True
+    assert update_child["roots"][0]["children"][0]["name"] == "Annual_Budget"
+    assert update_child["roots"][0]["children"][0]["data_type"] == "Currency"
+    assert update_child["roots"][0]["children"][0]["absolute_path"] == "Accounting\\Annual_Budget"
 
     # 3. Reject empty name
-    bad_rename = bridge.rename_node(root_id, "   ")
+    bad_rename = bridge.update_node(root_id, name="   ")
     assert bad_rename["success"] is False
     assert "empty" in bad_rename["error"]
 
@@ -66,32 +74,6 @@ def test_eel_move_node_cycle_rejection():
     move_res = bridge.move_node(p_id, c_id, "NEST_CHILD")
     assert move_res["success"] is False
     assert "descendant" in move_res["rejection_reason"]
-
-
-def test_eel_import_export_excel():
-    # Setup tree
-    res1 = bridge.add_node(None, "Root", is_container=True)
-    r_id = res1["node"]["id"]
-    bridge.add_node(r_id, "Leaf1", is_container=False)
-
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-        tmp_path = tmp.name
-
-    try:
-        # Export
-        exp_res = bridge.export_excel(tmp_path)
-        assert exp_res["success"] is True
-        assert exp_res["exported_paths"] == 1
-
-        # Import into fresh state
-        bridge.forest.root_nodes.clear()
-        imp_res = bridge.import_excel(tmp_path)
-        assert imp_res["success"] is True
-        assert len(imp_res["roots"]) == 1
-        assert imp_res["roots"][0]["name"] == "Root"
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
 
 
 def test_eel_sidebar_reorganizer_rpc_flow():
@@ -123,20 +105,15 @@ def test_eel_sidebar_reorganizer_rpc_flow():
         assert "roots" in res_import
         assert len(res_import["roots"]) == 2
 
-        # 2. Test get_sheet_headers on-demand endpoint
-        res_headers = bridge.get_sheet_headers("SheetB")
-        assert res_headers["success"] is True
-        assert res_headers["sheet_name"] == "SheetB"
-        assert res_headers["headers"] == ["Category"]
-
-        # 3. Modify SheetA by adding a child node
+        # 2. Modify SheetA by adding a node
         add_res_a = bridge.add_node(None, "CustomNodeA", is_container=True)
         assert add_res_a["success"] is True
 
-        # 4. Switch to SheetB and modify SheetB
+        # 3. Test switch_active_sheet to SheetB and modify SheetB
         res_switch = bridge.switch_active_sheet("SheetB")
         assert res_switch["success"] is True
         assert res_switch["sheet_name"] == "SheetB"
+        assert res_switch["headers"] == ["Category"]
         add_res_b = bridge.add_node(None, "CustomNodeB", is_container=True)
         assert add_res_b["success"] is True
 
@@ -218,8 +195,8 @@ def test_eel_add_node_with_zone_positioning():
     res_inside = bridge.add_node(name="HeaderInside", is_container=False, target_id=b_id, zone="NEST_CHILD")
     assert res_inside["success"] is True
 
-    tree = bridge.get_workspace_tree()
-    root_node = tree["roots"][0]
+    tree_roots = bridge.forest.to_dict()["roots"]
+    root_node = tree_roots[0]
     children_names = [c["name"] for c in root_node["children"]]
     assert children_names == ["HeaderBefore", "NodeB", "HeaderAfter"]
 
@@ -272,8 +249,8 @@ def test_eel_update_node_and_type():
     node_id = res1["node"]["id"]
     assert res1["node"]["data_type"] == "Text"
 
-    # Update type using update_node_type
-    res_type = bridge.update_node_type(node_id, "Currency")
+    # Update type using update_node
+    res_type = bridge.update_node(node_id, data_type="Currency")
     assert res_type["success"] is True
     assert res_type["node"]["data_type"] == "Currency"
     assert res_type["roots"][0]["data_type"] == "Currency"
@@ -285,7 +262,7 @@ def test_eel_update_node_and_type():
     assert res_both["node"]["data_type"] == "Decimal"
 
     # Reject invalid data type
-    res_bad = bridge.update_node_type(node_id, "UnknownFormat")
+    res_bad = bridge.update_node(node_id, data_type="UnknownFormat")
     assert res_bad["success"] is False
     assert "Invalid data type" in res_bad["error"]
 

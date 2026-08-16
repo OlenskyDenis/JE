@@ -3,7 +3,6 @@
 from typing import Optional, Sequence
 from src.hierarchy_lib.models.node import HierarchyNode
 from src.hierarchy_lib.services.forest import WorkspaceForest
-from src.hierarchy_lib.services.settings_service import SettingsService
 
 
 class PathParserService:
@@ -13,12 +12,12 @@ class PathParserService:
     def parse_header_paths(paths: Sequence[Optional[str]], delimiter: Optional[str] = None) -> WorkspaceForest:
         """
         Parses a sequence of delimited header paths into a WorkspaceForest.
-        - Segment separator: supplied delimiter or active SettingsService delimiter (default: '\\')
+        - Segment separator: supplied delimiter or default (default: '\\')
         - For multi-segment paths (S1\\S2\\...\\Sk): S1 is root node, S2..Sk-1 are intermediate
           nodes (common prefixes are reused), and Sk is a terminal leaf node.
         - For single-segment paths (S1): S1 is created as a root node.
         """
-        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
+        delim = delimiter if delimiter is not None else "\\"
         forest = WorkspaceForest()
         if not paths:
             return forest

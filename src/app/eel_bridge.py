@@ -8,8 +8,6 @@ os.environ.setdefault("PURE_PYTHON", "1")
 from typing import Dict, Any, Optional, List
 import eel
 from src.hierarchy_lib.models.node import HierarchyNode
-from src.hierarchy_lib.models.composite import CompositeNode
-from src.hierarchy_lib.models.leaf import LeafNode
 from src.hierarchy_lib.services.forest import WorkspaceForest
 from src.hierarchy_lib.adapters.excel_adapter import ExcelHierarchyAdapter
 from src.hierarchy_lib.services.dialog_service import FileDialogService
@@ -68,18 +66,10 @@ def reset_settings() -> Dict[str, Any]:
 
 
 @eel.expose
-def get_workspace_tree() -> Dict[str, Any]:
-    """Returns full multi-root forest tree dictionary for UI rendering."""
-    return {
-        "success": True,
-        "roots": forest.to_dict()["roots"]
-    }
-
-
-@eel.expose
 def add_node(parent_id: Optional[str] = None, name: str = "", is_container: bool = True, target_id: Optional[str] = None, zone: Optional[str] = None, data_type: Optional[str] = "Text") -> Dict[str, Any]:
     """Adds a new dynamic node under parent_id, or relative to target_id and zone, or as a new root node."""
     try:
+        delim = SettingsService.get_delimiter()
         new_node = HierarchyNode(name, data_type=data_type)
 
         if target_id or zone:
@@ -94,8 +84,8 @@ def add_node(parent_id: Optional[str] = None, name: str = "", is_container: bool
 
         return {
             "success": True,
-            "node": new_node.to_dict(),
-            "roots": forest.to_dict()["roots"]
+            "node": new_node.to_dict(delimiter=delim),
+            "roots": forest.to_dict(delimiter=delim)["roots"]
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -108,23 +98,26 @@ def move_node(node_id: str, target_node_id: str, zone: str) -> Dict[str, Any]:
     Enforces cycle validation and returns updated tree or rejection reason.
     """
     try:
+        delim = SettingsService.get_delimiter()
         forest.move_node(node_id, target_node_id, zone)
         return {
             "success": True,
             "rejection_reason": None,
-            "roots": forest.to_dict()["roots"]
+            "roots": forest.to_dict(delimiter=delim)["roots"]
         }
     except ValueError as ve:
+        delim = SettingsService.get_delimiter()
         return {
             "success": False,
             "rejection_reason": str(ve),
-            "roots": forest.to_dict()["roots"]
+            "roots": forest.to_dict(delimiter=delim)["roots"]
         }
     except Exception as e:
+        delim = SettingsService.get_delimiter()
         return {
             "success": False,
             "rejection_reason": f"Unexpected error: {str(e)}",
-            "roots": forest.to_dict()["roots"]
+            "roots": forest.to_dict(delimiter=delim)["roots"]
         }
 
 
@@ -132,61 +125,19 @@ def move_node(node_id: str, target_node_id: str, zone: str) -> Dict[str, Any]:
 def delete_node(node_id: str) -> Dict[str, Any]:
     """Deletes a node from the workspace forest."""
     try:
+        delim = SettingsService.get_delimiter()
         node = forest.find_node(node_id)
         if not node:
             return {"success": False, "error": "Node not found."}
 
         if node.parent:
-            if isinstance(node.parent, CompositeNode):
-                node.parent.remove_child(node.id)
+            node.parent.remove_child(node.id)
         else:
             forest.remove_root(node.id)
 
         return {
             "success": True,
-            "roots": forest.to_dict()["roots"]
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@eel.expose
-def rename_node(node_id: str, new_name: str) -> Dict[str, Any]:
-    """Renames target node in active forest, updates session and returns updated roots."""
-    global forest
-    try:
-        trimmed = new_name.strip() if new_name else ""
-        if not trimmed:
-            return {"success": False, "error": "Node name cannot be empty."}
-
-        node = forest.find_node(node_id)
-        if not node:
-            return {"success": False, "error": f"Node '{node_id}' not found."}
-
-        node.rename(trimmed)
-        return {
-            "success": True,
-            "node": node.to_dict(),
-            "roots": forest.to_dict()["roots"]
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@eel.expose
-def update_node_type(node_id: str, data_type: str) -> Dict[str, Any]:
-    """Updates the Excel data type of target node in active forest."""
-    global forest
-    try:
-        node = forest.find_node(node_id)
-        if not node:
-            return {"success": False, "error": f"Node '{node_id}' not found."}
-
-        node.set_data_type(data_type)
-        return {
-            "success": True,
-            "node": node.to_dict(),
-            "roots": forest.to_dict()["roots"]
+            "roots": forest.to_dict(delimiter=delim)["roots"]
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -197,6 +148,7 @@ def update_node(node_id: str, name: Optional[str] = None, data_type: Optional[st
     """Updates name and/or data_type of target node in active forest."""
     global forest
     try:
+        delim = SettingsService.get_delimiter()
         node = forest.find_node(node_id)
         if not node:
             return {"success": False, "error": f"Node '{node_id}' not found."}
@@ -212,48 +164,12 @@ def update_node(node_id: str, name: Optional[str] = None, data_type: Optional[st
 
         return {
             "success": True,
-            "node": node.to_dict(),
-            "roots": forest.to_dict()["roots"]
+            "node": node.to_dict(delimiter=delim),
+            "roots": forest.to_dict(delimiter=delim)["roots"]
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-
-
-@eel.expose
-def import_excel(file_path: str) -> Dict[str, Any]:
-    """Imports an Excel file, replacing or merging into the active forest."""
-    global forest, current_file_path
-    try:
-        if not os.path.exists(file_path):
-            return {"success": False, "error": f"File not found: {file_path}"}
-
-        current_file_path = file_path
-        new_forest = ExcelHierarchyAdapter.import_from_file(file_path)
-        forest = new_forest
-        return {
-            "success": True,
-            "imported_count": len(forest.root_nodes),
-            "roots": forest.to_dict()["roots"]
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@eel.expose
-def export_excel(file_path: str) -> Dict[str, Any]:
-    """Exports the current forest into an Excel file."""
-    try:
-        count = ExcelHierarchyAdapter.export_to_file(forest, file_path)
-        return {
-            "success": True,
-            "exported_paths": count
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-# Endpoints for Feature 002: Excel Sidebar Reorganizer
 
 def get_forest_leaf_meta(sforest: WorkspaceForest, delimiter: Optional[str] = None) -> List[Dict[str, str]]:
     """Collects leaf node absolute paths with their corresponding data types."""
@@ -410,25 +326,6 @@ def refresh_excel_session() -> Dict[str, Any]:
 
 
 @eel.expose
-def get_sheet_headers(sheet_name: str) -> Dict[str, Any]:
-    """Returns streamed Row 1 headers for a specific sheet in current session."""
-    global current_file_path
-    try:
-        if not current_file_path or not os.path.exists(current_file_path):
-            return {"success": False, "error": "No active Excel session loaded."}
-
-        default_type = SettingsService.get_default_data_type()
-        headers = ExcelHierarchyAdapter.read_row1_headers(current_file_path, sheet_name, default_data_type=default_type)
-        return {
-            "success": True,
-            "sheet_name": sheet_name,
-            "headers": headers
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@eel.expose
 def switch_active_sheet(sheet_name: str) -> Dict[str, Any]:
     """Switches active sheet, retaining modified tree in sheet_forests and returning restored roots and headers."""
     global forest, current_file_path, sheet_forests, current_active_sheet, current_template_path
@@ -505,31 +402,6 @@ def save_template_sync(output_path: Optional[str] = None) -> Dict[str, Any]:
             "total_columns": count,
             "modified_sheets": list(sheet_forests.keys())
         }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-
-@eel.expose
-def export_reorganized_row1(sheet_name: str, leaf_paths: List[str], output_path: Optional[str] = None) -> Dict[str, Any]:
-    """Exports leaf path strings sequentially into Row 1 horizontally across columns for target sheet and binds template path."""
-    global current_file_path, current_template_path
-    try:
-        target_path = output_path if output_path else current_template_path
-        if not target_path:
-            target_path = current_file_path
-        if not target_path:
-            return {"success": False, "error": "No target output path specified."}
-
-        res = save_template_sync(target_path)
-        if res.get("success"):
-            return {
-                "success": True,
-                "column_count": res.get("total_columns", len(leaf_paths)),
-                "output_path": target_path,
-                "template_path": target_path
-            }
-        return res
     except Exception as e:
         return {"success": False, "error": str(e)}
 

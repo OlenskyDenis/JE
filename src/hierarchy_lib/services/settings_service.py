@@ -3,6 +3,7 @@
 import json
 import os
 from typing import Dict, Any, Optional, Tuple
+from src.hierarchy_lib.models.data_types import VALID_DATA_TYPES, validate_data_type
 
 
 class SettingsService:
@@ -12,17 +13,7 @@ class SettingsService:
     DEFAULT_DATA_TYPE = "Text"
     MAX_DELIMITER_LENGTH = 3
 
-    VALID_DATA_TYPES: Tuple[str, ...] = (
-        "Text",
-        "Integer",
-        "Decimal",
-        "Currency",
-        "Percentage",
-        "Date",
-        "Time",
-        "DateTime",
-        "Boolean",
-    )
+    VALID_DATA_TYPES: Tuple[str, ...] = VALID_DATA_TYPES
 
     DEFAULT_SETTINGS: Dict[str, str] = {
         "delimiter": DEFAULT_DELIMITER,
@@ -57,11 +48,7 @@ class SettingsService:
         """Validates default data type against VALID_DATA_TYPES."""
         if not data_type or not str(data_type).strip():
             return cls.DEFAULT_DATA_TYPE
-        clean = str(data_type).strip()
-        for valid in cls.VALID_DATA_TYPES:
-            if clean.lower() == valid.lower():
-                return valid
-        raise ValueError(f"Invalid data type '{data_type}'. Expected one of: {', '.join(cls.VALID_DATA_TYPES)}")
+        return validate_data_type(data_type)
 
     @classmethod
     def load_settings(cls, config_path: Optional[str] = None) -> Dict[str, str]:

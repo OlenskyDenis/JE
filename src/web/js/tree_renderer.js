@@ -39,7 +39,6 @@ const TreeRenderer = {
         wrapper.className = isCollapsed ? 'tree-node collapsed' : 'tree-node';
         wrapper.dataset.id = node.id;
         wrapper.dataset.isFolder = isFolder;
-        wrapper.dataset.isContainer = isFolder;
         wrapper.dataset.dataType = node.data_type || 'Text';
 
         const content = document.createElement('div');

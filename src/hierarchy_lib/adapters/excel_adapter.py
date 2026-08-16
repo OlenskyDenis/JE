@@ -2,13 +2,8 @@
 
 import os
 from typing import Union, BinaryIO, List, Dict, Any, Tuple, Optional
-from collections import Counter
 import openpyxl
-from src.hierarchy_lib.models.composite import CompositeNode
-from src.hierarchy_lib.models.leaf import LeafNode
-from src.hierarchy_lib.services.forest import WorkspaceForest
 from src.hierarchy_lib.services.header_service import HeaderService
-from src.hierarchy_lib.services.settings_service import SettingsService
 
 
 class ExcelHierarchyAdapter:
@@ -42,7 +37,7 @@ class ExcelHierarchyAdapter:
         default_data_type: Optional[str] = None
     ) -> str:
         """Maps Excel number format string and cell data_type flag to one of the 9 standard Excel types."""
-        fallback_type = default_data_type if default_data_type is not None else SettingsService.get_default_data_type()
+        fallback_type = default_data_type if default_data_type is not None else "Text"
 
         if data_type_flag == "b":
             return "Boolean"
@@ -138,19 +133,6 @@ class ExcelHierarchyAdapter:
             wb.close()
 
     @staticmethod
-    def infer_column_types(
-        file_path_or_stream: Union[str, BinaryIO],
-        sheet_name: str,
-        max_rows: int = 1,
-        default_data_type: Optional[str] = None
-    ) -> Dict[str, str]:
-        """Infers standard Excel column data types directly from Row 1 column formats."""
-        pairs = ExcelHierarchyAdapter.read_row1_headers_and_types(
-            file_path_or_stream, sheet_name, default_data_type=default_data_type
-        )
-        return dict(pairs)
-
-    @staticmethod
     def read_row1_headers(
         file_path_or_stream: Union[str, BinaryIO],
         sheet_name: str,
@@ -240,119 +222,3 @@ class ExcelHierarchyAdapter:
         new_wb.save(output_path)
         new_wb.close()
         return total_cols
-
-    @staticmethod
-    def export_horizontal_row1_leaf_paths(
-        file_path_or_stream: Union[str, BinaryIO, None],
-        sheet_name: str,
-        leaf_paths: List[str],
-        output_path: str
-    ) -> int:
-        """Backwards-compatible wrapper calling export_multi_sheet_template."""
-        ExcelHierarchyAdapter.export_multi_sheet_template(
-            file_path_or_stream=file_path_or_stream,
-            sheet_leaf_paths_map={sheet_name: leaf_paths},
-            output_path=output_path
-        )
-        return len(leaf_paths)
-
-    @staticmethod
-    def import_from_file(
-        file_path_or_stream: Union[str, BinaryIO],
-        default_data_type: Optional[str] = None,
-        delimiter: Optional[str] = None
-    ) -> WorkspaceForest:
-        """
-        Parses an Excel (.xlsx) file into a WorkspaceForest.
-        Reads Row 1 / Cell A1 of each sheet in the workbook as a delimited path string.
-        """
-        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
-        forest = WorkspaceForest()
-        wb = openpyxl.load_workbook(file_path_or_stream, data_only=True)
-
-        for sheet in wb.worksheets:
-            cell_value = sheet.cell(row=1, column=1).value
-            if not cell_value or not str(cell_value).strip():
-                continue
-
-            path_str = str(cell_value).strip()
-            segments = [seg.strip() for seg in path_str.split(delim) if seg.strip()]
-            if not segments:
-                continue
-
-            # Segment 0 is root
-            root_name = segments[0]
-            current_container = None
-            for root in forest.root_nodes:
-                if root.name == root_name:
-                    current_container = root
-                    break
-
-            if not current_container:
-                current_container = CompositeNode(root_name)
-                forest.add_root(current_container)
-
-            # Process subsequent path segments
-            for idx in range(1, len(segments)):
-                seg_name = segments[idx]
-                is_last = (idx == len(segments) - 1)
-
-                if is_last:
-                    existing_child = None
-                    for child in current_container.children:
-                        if child.name == seg_name:
-                            existing_child = child
-                            break
-
-                    if not existing_child:
-                        leaf = LeafNode(seg_name, data_type=default_data_type)
-                        current_container.add_child(leaf)
-                else:
-                    existing_container = None
-                    for child in current_container.children:
-                        if child.is_container and child.name == seg_name and isinstance(child, CompositeNode):
-                            existing_container = child
-                            break
-
-                    if not existing_container:
-                        new_container = CompositeNode(seg_name)
-                        current_container.add_child(new_container)
-                        current_container = new_container
-                    else:
-                        current_container = existing_container
-
-        wb.close()
-        return forest
-
-    @staticmethod
-    def export_to_file(forest: WorkspaceForest, output_path: str, delimiter: Optional[str] = None) -> int:
-        """
-        Exports all leaf paths from the WorkspaceForest into an Excel (.xlsx) workbook.
-        Each leaf path is assigned a sheet, writing each path segment down Column A.
-        Returns the total number of paths exported.
-        """
-        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
-        wb = openpyxl.Workbook()
-        default_sheet = wb.active
-        wb.remove(default_sheet)
-
-        paths = forest.get_all_leaf_paths(delimiter=delim)
-        if not paths:
-            sheet = wb.create_sheet(title="Hierarchy")
-            sheet.cell(row=1, column=1, value="")
-        else:
-            for idx, path_str in enumerate(paths, start=1):
-                segments = [seg for seg in path_str.split(delim) if seg]
-                sheet_title = f"Path_{idx}"
-                sheet = wb.create_sheet(title=sheet_title)
-
-                for row_idx, seg in enumerate(segments, start=1):
-                    sheet.cell(row=row_idx, column=1, value=seg)
-
-        out_dir = os.path.dirname(output_path)
-        if out_dir and not os.path.exists(out_dir):
-            os.makedirs(out_dir, exist_ok=True)
-
-        wb.save(output_path)
-        wb.close()
-        return len(paths)

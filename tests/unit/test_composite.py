@@ -1,9 +1,7 @@
-"""Unit tests for unified dynamic HierarchyNode and backwards-compatible Composite/Leaf wrappers."""
+"""Unit tests for unified dynamic HierarchyNode."""
 
 import pytest
 from src.hierarchy_lib.models.node import HierarchyNode
-from src.hierarchy_lib.models.composite import CompositeNode
-from src.hierarchy_lib.models.leaf import LeafNode
 
 
 def test_hierarchy_node_initial_leaf_state():
@@ -104,17 +102,6 @@ def test_hierarchy_node_serialization():
     assert c["is_container"] is False
     assert len(c["children"]) == 0
 
-
-def test_backwards_compatible_composite_and_leaf_aliases():
-    comp = CompositeNode("Folder")
-    leaf = LeafNode("Item")
-    comp.add_child(leaf)
-
-    assert comp.is_folder is True
-    assert comp.is_container is True
-    assert leaf.is_folder is False
-    assert leaf.is_container is False
-    assert leaf.get_absolute_path() == "Folder\\Item"
 
 
 def test_hierarchy_node_rename():

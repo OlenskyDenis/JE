@@ -66,7 +66,6 @@ class TestFrontendContracts:
 
         assert "t" in declared_methods
         assert "getTypeLabel" in declared_methods
-        assert "getTypeBadgeLabel" in declared_methods
 
         # Check all JS files for I18n.<methodName>(
         js_files = list(JS_DIR.glob("*.js"))

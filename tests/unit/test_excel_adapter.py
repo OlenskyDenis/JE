@@ -42,57 +42,6 @@ def test_get_sheet_names_and_read_row1_headers():
             os.remove(tmp_path)
 
 
-def test_export_horizontal_row1_leaf_paths():
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-        tmp_path = tmp.name
-
-    try:
-        # Create base workbook with multiple sheets and data rows in Row 2+
-        wb = openpyxl.Workbook()
-        ws1 = wb.active
-        ws1.title = "DataSheet"
-        ws1.cell(row=1, column=1, value="OldHeader1")
-        ws1.cell(row=2, column=1, value="ShouldBeStrippedData")
-        ws1.cell(row=3, column=1, value="ShouldBeStrippedDataRow3")
-        ws2 = wb.create_sheet(title="UneditedSheet")
-        ws2.cell(row=1, column=1, value="UnchangedHeader")
-        ws2.cell(row=2, column=1, value="ShouldBeStrippedDataInSheet2")
-        wb.save(tmp_path)
-        wb.close()
-
-        # Export reconstructed horizontal leaf paths into Row 1 of DataSheet
-        new_paths = ["Root\\Folder1\\ItemA", "Root\\Folder2\\ItemB"]
-        cols_written = ExcelHierarchyAdapter.export_horizontal_row1_leaf_paths(
-            file_path_or_stream=tmp_path,
-            sheet_name="DataSheet",
-            leaf_paths=new_paths,
-            output_path=tmp_path
-        )
-
-        assert cols_written == 2
-
-        # Verify output file is a clean template with all sheets preserved and ZERO data rows
-        wb_out = openpyxl.load_workbook(tmp_path)
-        assert wb_out.sheetnames == ["DataSheet", "UneditedSheet"]
-
-        ws_data = wb_out["DataSheet"]
-        assert ws_data.cell(row=1, column=1).value == "Root\\Folder1\\ItemA"
-        assert ws_data.cell(row=1, column=2).value == "Root\\Folder2\\ItemB"
-        # Verify Row 2+ data is stripped (max_row == 1, row 2 is None)
-        assert ws_data.max_row == 1
-        assert ws_data.cell(row=2, column=1).value is None
-
-        # Verify UneditedSheet preserved with its original Row 1 header and zero data rows
-        ws_unedited = wb_out["UneditedSheet"]
-        assert ws_unedited.cell(row=1, column=1).value == "UnchangedHeader"
-        assert ws_unedited.max_row == 1
-        assert ws_unedited.cell(row=2, column=1).value is None
-        wb_out.close()
-
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-
 
 def test_export_multi_sheet_template():
     with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_src, \
@@ -163,11 +112,10 @@ def test_export_multi_sheet_template():
 
 def test_round_trip_parse_and_export():
     from src.hierarchy_lib.services.path_parser import PathParserService
-    from src.hierarchy_lib.services.path_generator import PathGenerator
 
     initial_headers = [r"Company\HR\Employees", r"Company\HR\Salaries", r"Company\Finance\Invoices"]
     forest = PathParserService.parse_header_paths(initial_headers)
-    leaf_paths = PathGenerator.calculate_all_paths(forest)
+    leaf_paths = forest.get_all_leaf_paths()
 
     assert leaf_paths == initial_headers
 
@@ -272,45 +220,6 @@ def test_read_row1_headers_whitespace_counts_as_empty():
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-
-def test_infer_column_types_from_excel_cells():
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-        tmp_path = tmp.name
-
-    try:
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "TypedSheet"
-
-        # Headers & column formats set on Row 1 / column
-        ws.cell(row=1, column=1, value="Name")
-        c2 = ws.cell(row=1, column=2, value="Age")
-        c2.number_format = "0"
-        c3 = ws.cell(row=1, column=3, value="Score")
-        c3.number_format = "0.00"
-        c4 = ws.cell(row=1, column=4, value="Salary")
-        c4.number_format = '"$"#,##0.00'
-        c5 = ws.cell(row=1, column=5, value="Discount")
-        c5.number_format = "0.00%"
-        c6 = ws.cell(row=1, column=6, value="HireDate")
-        c6.number_format = "yyyy-mm-dd"
-        c7 = ws.cell(row=1, column=7, value="IsActive")
-        c7.number_format = "General"
-
-        wb.save(tmp_path)
-        wb.close()
-
-        type_map = ExcelHierarchyAdapter.infer_column_types(tmp_path, "TypedSheet")
-        assert type_map["Name"] == "Text"
-        assert type_map["Age"] == "Integer"
-        assert type_map["Score"] == "Decimal"
-        assert type_map["Salary"] == "Currency"
-        assert type_map["Discount"] == "Percentage"
-        assert type_map["HireDate"] == "Date"
-        assert type_map["IsActive"] == "Text"
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
 
 
 def test_export_multi_sheet_template_with_cell_number_formats():

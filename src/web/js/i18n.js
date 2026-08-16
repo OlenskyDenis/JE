@@ -405,10 +405,6 @@ const I18n = {
         return (translated !== key) ? translated : String(type);
     },
 
-    getTypeBadgeLabel(type) {
-        return this.getTypeLabel(type);
-    },
-
     onLanguageChanged(callback) {
         if (typeof callback === 'function') {
             this.subscribers.push(callback);
@@ -467,4 +463,3 @@ const I18n = {
 
 // Export to window for global browser availability
 window.I18n = I18n;
-window.I18N_DICTIONARIES = I18N_DICTIONARIES;

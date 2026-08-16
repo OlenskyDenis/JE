@@ -2,7 +2,7 @@
 
 import uuid
 from typing import List, Dict, Any, Optional
-from src.hierarchy_lib.services.settings_service import SettingsService
+from src.hierarchy_lib.models.data_types import VALID_DATA_TYPES, validate_data_type
 
 
 class HierarchyNode:
@@ -12,17 +12,7 @@ class HierarchyNode:
     A node with len(children) == 0 dynamically evaluates to a leaf (is_folder = False).
     """
 
-    VALID_DATA_TYPES = (
-        "Text",
-        "Integer",
-        "Decimal",
-        "Currency",
-        "Percentage",
-        "Date",
-        "Time",
-        "DateTime",
-        "Boolean",
-    )
+    VALID_DATA_TYPES = VALID_DATA_TYPES
 
     def __init__(self, name: str, node_id: Optional[str] = None, data_type: Optional[str] = "Text"):
         self.id: str = node_id if node_id else str(uuid.uuid4())
@@ -104,13 +94,7 @@ class HierarchyNode:
     @classmethod
     def validate_data_type(cls, data_type: str) -> str:
         """Validates and returns normalized canonical standard Excel data type string."""
-        if not data_type or not str(data_type).strip():
-            return "Text"
-        clean = str(data_type).strip()
-        for valid in cls.VALID_DATA_TYPES:
-            if clean.lower() == valid.lower():
-                return valid
-        raise ValueError(f"Invalid data type '{data_type}'. Expected one of: {', '.join(cls.VALID_DATA_TYPES)}")
+        return validate_data_type(data_type)
 
     def set_data_type(self, data_type: str) -> None:
         """Sets data type with validation against standard Excel types."""
@@ -118,7 +102,7 @@ class HierarchyNode:
 
     def get_absolute_path(self, delimiter: Optional[str] = None) -> str:
         """Recursively builds delimited path from root to this node (Root\\Folder\\Item)."""
-        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
+        delim = delimiter if delimiter is not None else "\\"
         if self.parent is None:
             return self.name
         parent_path = self.parent.get_absolute_path(delimiter=delim)
@@ -126,7 +110,7 @@ class HierarchyNode:
 
     def to_dict(self, delimiter: Optional[str] = None) -> Dict[str, Any]:
         """Serialize node and its children into a dictionary DTO."""
-        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
+        delim = delimiter if delimiter is not None else "\\"
         return {
             "id": self.id,
             "name": self.name,
