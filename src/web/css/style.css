@@ -1183,6 +1183,15 @@ body.is-resizing * {
     align-items: center;
     gap: 10px;
     animation: toastIn 0.25s ease-out forwards;
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    color: #f8fafc;
+}
+
+.toast.toast-info {
+    background-color: #0c4a6e;
+    border: 1px solid var(--color-primary);
+    color: #e0f2fe;
 }
 
 .toast.toast-warning {

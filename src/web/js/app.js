@@ -999,7 +999,8 @@ const App = {
         }
 
         if (payload.isNew) {
-            await this.handleAddHeaderNode(payload.label, targetId, zone, payload.dataType || 'Text');
+            const defaultType = (this.settings && this.settings.default_data_type) ? this.settings.default_data_type : 'Text';
+            await this.handleAddHeaderNode(payload.label, targetId, zone, payload.dataType || defaultType);
         } else if (payload.id) {
             if (!targetId || !zone) return;
             await this.handleMoveNode(payload.id, targetId, zone);
@@ -1007,14 +1008,15 @@ const App = {
     },
 
     // Feature 002 & 020: Add Header from Non-Destructive Drag and Drop with zone positioning and data type inheritance
-    async handleAddHeaderNode(headerLabel, targetId, zone, dataType = "Text") {
+    async handleAddHeaderNode(headerLabel, targetId, zone, dataType = null) {
         const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        const effectiveType = dataType || ((this.settings && this.settings.default_data_type) ? this.settings.default_data_type : 'Text');
         try {
-            const res = await eel.add_node(null, headerLabel, false, targetId, zone, dataType)();
+            const res = await eel.add_node(null, headerLabel, false, targetId, zone, effectiveType)();
             if (res.success) {
                 this.isDirty = true;
                 this.updateUI(res.roots);
-                this.showToast(t('toast_header_added', { name: headerLabel, type: dataType }), "success");
+                this.showToast(t('toast_header_added', { name: headerLabel, type: effectiveType }), "success");
             } else {
                 this.showToast(res.error || "Failed to add header node.", "error");
             }
@@ -1208,6 +1210,19 @@ const App = {
     // Feature 026: Settings Lifecycle & Modal Management
     async loadInitialSettings() {
         try {
+            if (typeof eel !== 'undefined' && eel.get_settings) {
+                const res = await eel.get_settings()();
+                if (res && res.success && res.settings) {
+                    this.settings = {
+                        delimiter: res.settings.delimiter || '\\',
+                        default_data_type: res.settings.default_data_type || 'Text'
+                    };
+                    localStorage.setItem('je_settings_config', JSON.stringify(this.settings));
+                    return;
+                }
+            }
+
+            // Fallback to cached settings only if eel RPC is not available
             const cached = localStorage.getItem('je_settings_config');
             if (cached) {
                 try {
@@ -1217,25 +1232,9 @@ const App = {
                             delimiter: parsed.delimiter || '\\',
                             default_data_type: parsed.default_data_type || 'Text'
                         };
-                        // Synchronize with Python backend
-                        if (typeof eel !== 'undefined' && eel.update_settings) {
-                            await eel.update_settings(this.settings.delimiter, this.settings.default_data_type)();
-                        }
-                        return;
                     }
                 } catch (e) {
                     console.error('Failed to parse cached settings:', e);
-                }
-            }
-
-            if (typeof eel !== 'undefined' && eel.get_settings) {
-                const res = await eel.get_settings()();
-                if (res && res.success && res.settings) {
-                    this.settings = {
-                        delimiter: res.settings.delimiter || '\\',
-                        default_data_type: res.settings.default_data_type || 'Text'
-                    };
-                    localStorage.setItem('je_settings_config', JSON.stringify(this.settings));
                 }
             }
         } catch (err) {

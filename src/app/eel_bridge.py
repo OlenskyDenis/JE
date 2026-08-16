@@ -66,11 +66,13 @@ def reset_settings() -> Dict[str, Any]:
 
 
 @eel.expose
-def add_node(parent_id: Optional[str] = None, name: str = "", is_container: bool = True, target_id: Optional[str] = None, zone: Optional[str] = None, data_type: Optional[str] = "Text") -> Dict[str, Any]:
+def add_node(parent_id: Optional[str] = None, name: str = "", is_container: bool = True, target_id: Optional[str] = None, zone: Optional[str] = None, data_type: Optional[str] = None) -> Dict[str, Any]:
     """Adds a new dynamic node under parent_id, or relative to target_id and zone, or as a new root node."""
     try:
         delim = SettingsService.get_delimiter()
-        new_node = HierarchyNode(name, data_type=data_type)
+        default_type = SettingsService.get_default_data_type()
+        effective_type = data_type if data_type is not None else default_type
+        new_node = HierarchyNode(name, data_type=effective_type)
 
         if target_id or zone:
             forest.add_node_at_zone(new_node, target_node_id=target_id, zone=zone)
