@@ -84,3 +84,29 @@ class TestArchitectureContracts:
 
         found_retired = function_names.intersection(retired_rpcs)
         assert not found_retired, f"Retired RPC functions still present in eel_bridge.py: {found_retired}"
+
+    def test_system_map_modular_router_integrity(self):
+        """
+        Modular System Map Integrity: Ensure master router and all MVC modular maps exist and are non-empty.
+        """
+        specify_dir = REPO_ROOT / ".specify"
+        master_router = specify_dir / "system_map.md"
+        assert master_router.exists(), "Master router .specify/system_map.md missing"
+
+        system_map_dir = specify_dir / "system_map"
+        assert system_map_dir.exists() and system_map_dir.is_dir(), "Modular directory .specify/system_map missing"
+
+        expected_modules = [
+            "domain_and_models.md",
+            "views_and_ui.md",
+            "controllers_and_rpc.md",
+            "dtos_and_contracts.md",
+            "infrastructure_and_adapters.md",
+            "state_and_lifecycle.md",
+            "tests_and_quality.md",
+        ]
+
+        for mod_name in expected_modules:
+            mod_file = system_map_dir / mod_name
+            assert mod_file.exists(), f"Modular system map file '{mod_name}' is missing"
+            assert mod_file.stat().st_size > 100, f"Modular system map file '{mod_name}' is empty or too short"
