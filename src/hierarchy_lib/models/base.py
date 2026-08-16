@@ -23,12 +23,13 @@ class HierarchyComponent(ABC):
         # Replace raw backslashes with forward slashes or escaped representation if present inside name
         return clean_name.replace("\\", "/")
 
-    def get_absolute_path(self) -> str:
-        """Recursively builds backslash-delimited path from root to this component (Root\\Folder\\Item)."""
+    def get_absolute_path(self, delimiter: Optional[str] = None) -> str:
+        """Recursively builds delimited path from root to this component (Root\\Folder\\Item)."""
+        delim = delimiter if delimiter is not None else "\\"
         if self.parent is None:
             return self.name
-        parent_path = self.parent.get_absolute_path()
-        return f"{parent_path}\\{self.name}"
+        parent_path = self.parent.get_absolute_path(delimiter=delim)
+        return f"{parent_path}{delim}{self.name}"
 
     @property
     @abstractmethod
@@ -37,6 +38,6 @@ class HierarchyComponent(ABC):
         pass
 
     @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, delimiter: Optional[str] = None) -> Dict[str, Any]:
         """Serialize node and its children into a dictionary DTO."""
         pass

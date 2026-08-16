@@ -1,22 +1,24 @@
-"""PathParserService for parsing backslash-delimited path strings into WorkspaceForest DynamicNode trees."""
+"""PathParserService for parsing delimited path strings into WorkspaceForest DynamicNode trees."""
 
 from typing import Optional, Sequence
 from src.hierarchy_lib.models.node import HierarchyNode
 from src.hierarchy_lib.services.forest import WorkspaceForest
+from src.hierarchy_lib.services.settings_service import SettingsService
 
 
 class PathParserService:
     """Service providing parsing of hierarchical path strings into a unified WorkspaceForest."""
 
     @staticmethod
-    def parse_header_paths(paths: Sequence[Optional[str]]) -> WorkspaceForest:
+    def parse_header_paths(paths: Sequence[Optional[str]], delimiter: Optional[str] = None) -> WorkspaceForest:
         """
-        Parses a sequence of backslash-delimited header paths into a WorkspaceForest.
-        - Segment separator: '\\'
+        Parses a sequence of delimited header paths into a WorkspaceForest.
+        - Segment separator: supplied delimiter or active SettingsService delimiter (default: '\\')
         - For multi-segment paths (S1\\S2\\...\\Sk): S1 is root node, S2..Sk-1 are intermediate
           nodes (common prefixes are reused), and Sk is a terminal leaf node.
         - For single-segment paths (S1): S1 is created as a root node.
         """
+        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
         forest = WorkspaceForest()
         if not paths:
             return forest
@@ -28,7 +30,7 @@ class PathParserService:
             if not path_str:
                 continue
 
-            segments = [seg.strip() for seg in path_str.split("\\") if seg.strip()]
+            segments = [seg.strip() for seg in path_str.split(delim) if seg.strip()]
             if not segments:
                 continue
 

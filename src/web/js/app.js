@@ -24,10 +24,13 @@ const App = {
     currentRawHeadersMeta: [],
     collapsedNodeIds: new Set(),
     currentRoots: [],
+    settings: { delimiter: '\\', default_data_type: 'Text' },
+    currentViewMode: 'tree',
 
     async init() {
         this.collapsedNodeIds = new Set();
         this.currentRoots = [];
+        this.settings = { delimiter: '\\', default_data_type: 'Text' };
         this.cachedAllHeaders = {};
         this.cachedAllHeadersMeta = {};
         this.currentRawHeadersMeta = [];
@@ -36,8 +39,13 @@ const App = {
         this.pendingAction = null;
         this.modalMode = 'create';
         this.activeNodeIdForEdit = null;
+
+        const savedView = localStorage.getItem('je_workspace_view_mode');
+        this.currentViewMode = (savedView === 'matrix') ? 'matrix' : 'tree';
+
         this.bindDOM();
         this.bindEvents();
+        this.switchViewMode(this.currentViewMode);
 
         if (window.I18n) {
             I18n.init();
@@ -55,6 +63,7 @@ const App = {
             (msg, type) => this.showToast(msg, type)
         );
 
+        await this.loadInitialSettings();
         await this.refreshWorkspace();
     },
 
@@ -77,6 +86,21 @@ const App = {
         this.btnCollapseAll = document.getElementById('btnCollapseAll');
         this.btnAddRootHeader = document.getElementById('btnAddRootHeader');
 
+        // View Mode Switcher & Excel Block View (Feature 027)
+        this.btnViewTree = document.getElementById('btnViewTree');
+        this.btnViewMatrix = document.getElementById('btnViewMatrix');
+        this.excelBlockViewEl = document.getElementById('excelBlockView');
+
+        // Settings Button & Modal (Feature 026)
+        this.btnSettings = document.getElementById('btnSettings');
+        this.settingsModal = document.getElementById('settingsModal');
+        this.settingsModalClose = document.getElementById('settingsModalClose');
+        this.inputSettingDelimiter = document.getElementById('inputSettingDelimiter');
+        this.selectSettingDefaultType = document.getElementById('selectSettingDefaultType');
+        this.btnSettingsReset = document.getElementById('btnSettingsReset');
+        this.btnSettingsCancel = document.getElementById('btnSettingsCancel');
+        this.btnSettingsSave = document.getElementById('btnSettingsSave');
+
         // Language switcher buttons (Feature 023)
         this.langBtnUk = document.getElementById('langBtnUk');
         this.langBtnEn = document.getElementById('langBtnEn');
@@ -84,8 +108,10 @@ const App = {
         // Unified Sidebar & Tabs (Feature 013 & 015)
         this.unifiedSidebar = document.getElementById('unifiedSidebar');
         this.sidebarResizer = document.getElementById('sidebarResizer');
-        this.tabBtnCatalog = document.getElementById('tabBtnCatalog');
-        this.tabBtnPaths = document.getElementById('tabBtnPaths');
+        this.btnToggleSidebarCollapse = document.getElementById('btnToggleSidebarCollapse');
+        this.btnExpandSidebarStrip = document.getElementById('btnExpandSidebarStrip');
+        this.sidebarCollapsedStrip = document.getElementById('sidebarCollapsedStrip');
+        this.sidebarTabSelector = document.getElementById('sidebarTabSelector');
         this.tabContentCatalog = document.getElementById('tabContentCatalog');
         this.tabContentPaths = document.getElementById('tabContentPaths');
 
@@ -155,6 +181,14 @@ const App = {
         }
         if (this.btnCollapseAll) {
             this.btnCollapseAll.addEventListener('click', () => this.collapseAll());
+        }
+
+        // Feature 027: View Mode Switcher (Tree vs Excel Block Matrix)
+        if (this.btnViewTree) {
+            this.btnViewTree.addEventListener('click', () => this.switchViewMode('tree'));
+        }
+        if (this.btnViewMatrix) {
+            this.btnViewMatrix.addEventListener('click', () => this.switchViewMode('matrix'));
         }
 
         // Helper: Native OS Open File Dialog for Excel Import
@@ -414,39 +448,67 @@ const App = {
             if (e.key === 'Enter') this.submitModal();
             if (e.key === 'Escape') this.closeModal();
         });
+
+        // Settings Modal event handlers (Feature 026)
+        if (this.btnSettings) {
+            this.btnSettings.addEventListener('click', () => this.openSettingsModal());
+        }
+        if (this.settingsModalClose) {
+            this.settingsModalClose.addEventListener('click', () => this.closeSettingsModal());
+        }
+        if (this.btnSettingsCancel) {
+            this.btnSettingsCancel.addEventListener('click', () => this.closeSettingsModal());
+        }
+        if (this.btnSettingsReset) {
+            this.btnSettingsReset.addEventListener('click', () => this.resetSettings());
+        }
+        if (this.btnSettingsSave) {
+            this.btnSettingsSave.addEventListener('click', () => this.saveSettings());
+        }
+        if (this.inputSettingDelimiter) {
+            this.inputSettingDelimiter.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') this.saveSettings();
+                if (e.key === 'Escape') this.closeSettingsModal();
+            });
+        }
     },
 
-    // Feature 013: Unified Tab Switching Controller
+    // Feature 013 & Feature 027: Unified Sidebar Tab Selector Controller
     bindTabs() {
-        if (this.tabBtnCatalog && this.tabBtnPaths) {
-            this.tabBtnCatalog.addEventListener('click', () => this.switchTab('catalog'));
-            this.tabBtnPaths.addEventListener('click', () => this.switchTab('paths'));
+        if (this.sidebarTabSelector) {
+            this.sidebarTabSelector.addEventListener('change', () => {
+                this.switchTab(this.sidebarTabSelector.value);
+            });
         }
     },
 
     switchTab(tabName) {
-        if (!this.tabBtnCatalog || !this.tabBtnPaths || !this.tabContentCatalog || !this.tabContentPaths) return;
+        if (!this.tabContentCatalog || !this.tabContentPaths) return;
+        if (this.sidebarTabSelector && this.sidebarTabSelector.value !== tabName) {
+            this.sidebarTabSelector.value = tabName;
+        }
 
         if (tabName === 'catalog') {
-            this.tabBtnCatalog.classList.add('active');
-            this.tabBtnPaths.classList.remove('active');
             this.tabContentCatalog.classList.remove('hidden');
             this.tabContentCatalog.classList.add('active');
             this.tabContentPaths.classList.add('hidden');
             this.tabContentPaths.classList.remove('active');
+            if (this.headerCountBadge) this.headerCountBadge.classList.remove('hidden');
+            if (this.pathCountBadge) this.pathCountBadge.classList.add('hidden');
         } else {
-            this.tabBtnPaths.classList.add('active');
-            this.tabBtnCatalog.classList.remove('active');
             this.tabContentPaths.classList.remove('hidden');
             this.tabContentPaths.classList.add('active');
             this.tabContentCatalog.classList.add('hidden');
             this.tabContentCatalog.classList.remove('active');
+            if (this.pathCountBadge) this.pathCountBadge.classList.remove('hidden');
+            if (this.headerCountBadge) this.headerCountBadge.classList.add('hidden');
         }
     },
 
     // Feature 013: Draggable Left-Edge Sidebar Resizing Controller
+    // Feature 013 & Feature 027: Draggable Left-Edge Resizer & Collapsible Sidebar Controller
     bindResizer() {
-        if (!this.sidebarResizer || !this.unifiedSidebar) return;
+        if (!this.unifiedSidebar) return;
 
         // Restore persisted width from localStorage
         const savedWidth = localStorage.getItem('app_sidebar_width');
@@ -456,6 +518,34 @@ const App = {
                 this.setSidebarWidth(parsed);
             }
         }
+
+        // Restore persisted collapse state from localStorage
+        const savedCollapsed = localStorage.getItem('je_sidebar_collapsed');
+        if (savedCollapsed === 'true') {
+            this.toggleSidebarCollapse(true);
+        }
+
+        if (this.btnToggleSidebarCollapse) {
+            this.btnToggleSidebarCollapse.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleSidebarCollapse(true);
+            });
+        }
+
+        if (this.btnExpandSidebarStrip) {
+            this.btnExpandSidebarStrip.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleSidebarCollapse(false);
+            });
+        }
+
+        if (this.sidebarCollapsedStrip) {
+            this.sidebarCollapsedStrip.addEventListener('click', () => {
+                this.toggleSidebarCollapse(false);
+            });
+        }
+
+        if (!this.sidebarResizer) return;
 
         let isDragging = false;
 
@@ -487,6 +577,7 @@ const App = {
 
         this.sidebarResizer.addEventListener('pointerdown', (e) => {
             if (e.button !== 0) return;
+            if (this.unifiedSidebar.classList.contains('sidebar-collapsed')) return;
             isDragging = true;
             document.body.classList.add('is-resizing');
             this.sidebarResizer.classList.add('active');
@@ -497,11 +588,26 @@ const App = {
         });
 
         this.sidebarResizer.addEventListener('dblclick', () => {
+            if (this.unifiedSidebar.classList.contains('sidebar-collapsed')) return;
             const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
             this.setSidebarWidth(340);
             localStorage.setItem('app_sidebar_width', '340');
             this.showToast(t("sidebar_width_reset_toast"), "success");
         });
+    },
+
+    toggleSidebarCollapse(forceState = null) {
+        if (!this.unifiedSidebar) return;
+        const isCurrentlyCollapsed = this.unifiedSidebar.classList.contains('sidebar-collapsed');
+        const shouldCollapse = (forceState !== null) ? forceState : !isCurrentlyCollapsed;
+
+        if (shouldCollapse) {
+            this.unifiedSidebar.classList.add('sidebar-collapsed');
+            localStorage.setItem('je_sidebar_collapsed', 'true');
+        } else {
+            this.unifiedSidebar.classList.remove('sidebar-collapsed');
+            localStorage.setItem('je_sidebar_collapsed', 'false');
+        }
     },
 
     setSidebarWidth(width) {
@@ -612,10 +718,42 @@ const App = {
         }
     },
 
+    switchViewMode(mode) {
+        if (mode !== 'tree' && mode !== 'matrix') return;
+        this.currentViewMode = mode;
+        try {
+            localStorage.setItem('je_workspace_view_mode', mode);
+        } catch (e) {
+            console.error('Failed to save view mode preference:', e);
+        }
+
+        if (this.btnViewTree && this.btnViewMatrix) {
+            if (mode === 'tree') {
+                this.btnViewTree.classList.add('active');
+                this.btnViewMatrix.classList.remove('active');
+                if (this.treeViewEl) this.treeViewEl.classList.remove('hidden');
+                if (this.excelBlockViewEl) this.excelBlockViewEl.classList.add('hidden');
+            } else {
+                this.btnViewMatrix.classList.add('active');
+                this.btnViewTree.classList.remove('active');
+                if (this.treeViewEl) this.treeViewEl.classList.add('hidden');
+                if (this.excelBlockViewEl) {
+                    this.excelBlockViewEl.classList.remove('hidden');
+                    if (window.ExcelBlockRenderer) {
+                        ExcelBlockRenderer.renderMatrix(this.currentRoots, this.excelBlockViewEl);
+                    }
+                }
+            }
+        }
+    },
+
     updateUI(roots) {
         this.currentRoots = roots || [];
         TreeRenderer.renderTree(roots, this.treeViewEl, this.collapsedNodeIds);
         TreeRenderer.renderPaths(roots, this.pathListEl);
+        if (window.ExcelBlockRenderer && this.excelBlockViewEl) {
+            ExcelBlockRenderer.renderMatrix(roots, this.excelBlockViewEl);
+        }
 
         const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         let totalNodes = 0;
@@ -884,7 +1022,7 @@ const App = {
         if (this.btnModalSubmit) this.btnModalSubmit.textContent = t("modal_btn_create");
         this.inputNodeName.value = '';
         if (this.selectNodeType) {
-            this.selectNodeType.value = 'Text';
+            this.selectNodeType.value = (this.settings && this.settings.default_data_type) ? this.settings.default_data_type : 'Text';
             this.selectNodeType.disabled = false;
             this.selectNodeType.classList.remove('hidden');
         }
@@ -1018,5 +1156,123 @@ const App = {
         setTimeout(() => {
             toast.remove();
         }, 3500);
+    },
+
+    // Feature 026: Settings Lifecycle & Modal Management
+    async loadInitialSettings() {
+        try {
+            const cached = localStorage.getItem('je_settings_config');
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    if (parsed && typeof parsed === 'object') {
+                        this.settings = {
+                            delimiter: parsed.delimiter || '\\',
+                            default_data_type: parsed.default_data_type || 'Text'
+                        };
+                        // Synchronize with Python backend
+                        if (typeof eel !== 'undefined' && eel.update_settings) {
+                            await eel.update_settings(this.settings.delimiter, this.settings.default_data_type)();
+                        }
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Failed to parse cached settings:', e);
+                }
+            }
+
+            if (typeof eel !== 'undefined' && eel.get_settings) {
+                const res = await eel.get_settings()();
+                if (res && res.success && res.settings) {
+                    this.settings = {
+                        delimiter: res.settings.delimiter || '\\',
+                        default_data_type: res.settings.default_data_type || 'Text'
+                    };
+                    localStorage.setItem('je_settings_config', JSON.stringify(this.settings));
+                }
+            }
+        } catch (err) {
+            console.error('Error loading initial settings:', err);
+        }
+    },
+
+    openSettingsModal() {
+        if (!this.settingsModal) return;
+        if (this.inputSettingDelimiter) {
+            this.inputSettingDelimiter.value = (this.settings && this.settings.delimiter) ? this.settings.delimiter : '\\';
+        }
+        if (this.selectSettingDefaultType) {
+            this.selectSettingDefaultType.value = (this.settings && this.settings.default_data_type) ? this.settings.default_data_type : 'Text';
+        }
+        this.settingsModal.classList.remove('hidden');
+        if (this.inputSettingDelimiter) {
+            this.inputSettingDelimiter.focus();
+            this.inputSettingDelimiter.select();
+        }
+    },
+
+    closeSettingsModal() {
+        if (this.settingsModal) {
+            this.settingsModal.classList.add('hidden');
+        }
+    },
+
+    async saveSettings() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (!this.inputSettingDelimiter || !this.selectSettingDefaultType) return;
+
+        const delim = this.inputSettingDelimiter.value.trim();
+        if (!delim) {
+            this.showToast(t('toast_delimiter_empty'), 'warning');
+            this.inputSettingDelimiter.focus();
+            return;
+        }
+
+        const defaultType = this.selectSettingDefaultType.value || 'Text';
+
+        try {
+            const res = await eel.update_settings(delim, defaultType)();
+            if (res && res.success) {
+                this.settings = {
+                    delimiter: (res.settings && res.settings.delimiter) ? res.settings.delimiter : delim,
+                    default_data_type: (res.settings && res.settings.default_data_type) ? res.settings.default_data_type : defaultType
+                };
+                localStorage.setItem('je_settings_config', JSON.stringify(this.settings));
+                if (res.roots) {
+                    this.updateUI(res.roots);
+                }
+                this.closeSettingsModal();
+                this.showToast(t('toast_settings_saved'), 'success');
+            } else {
+                this.showToast((res && res.error) ? res.error : t('toast_settings_failed'), 'error');
+            }
+        } catch (err) {
+            this.showToast("RPC Error saving settings: " + err, "error");
+        }
+    },
+
+    async resetSettings() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        try {
+            const res = await eel.reset_settings()();
+            if (res && res.success) {
+                this.settings = {
+                    delimiter: (res.settings && res.settings.delimiter) ? res.settings.delimiter : '\\',
+                    default_data_type: (res.settings && res.settings.default_data_type) ? res.settings.default_data_type : 'Text'
+                };
+                localStorage.setItem('je_settings_config', JSON.stringify(this.settings));
+                if (this.inputSettingDelimiter) this.inputSettingDelimiter.value = this.settings.delimiter;
+                if (this.selectSettingDefaultType) this.selectSettingDefaultType.value = this.settings.default_data_type;
+                if (res.roots) {
+                    this.updateUI(res.roots);
+                }
+                this.closeSettingsModal();
+                this.showToast(t('toast_settings_reset'), 'success');
+            } else {
+                this.showToast(t('toast_settings_failed'), 'error');
+            }
+        } catch (err) {
+            this.showToast("RPC Error resetting settings: " + err, "error");
+        }
     }
 };

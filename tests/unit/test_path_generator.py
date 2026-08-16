@@ -69,3 +69,17 @@ def test_move_node_before_sibling():
 
     assert root.children[0].id == child2.id
     assert root.children[1].id == child1.id
+
+
+def test_calculate_all_paths_custom_delimiter():
+    forest = WorkspaceForest()
+    root = CompositeNode("Base")
+    sub = CompositeNode("Sub")
+    leaf = LeafNode("Item")
+    sub.add_child(leaf)
+    root.add_child(sub)
+    forest.add_root(root)
+
+    assert PathGenerator.calculate_path(leaf, delimiter="/") == "Base/Sub/Item"
+    assert PathGenerator.calculate_all_paths(forest, delimiter="/") == ["Base/Sub/Item"]
+    assert PathGenerator.calculate_path(leaf, delimiter="::") == "Base::Sub::Item"

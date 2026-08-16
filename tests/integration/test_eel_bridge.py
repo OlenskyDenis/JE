@@ -475,4 +475,52 @@ def test_eel_refresh_excel_session_exceptions():
             os.remove(corrupted_path)
 
 
+def test_eel_get_and_update_settings():
+    # 1. Get settings
+    get_res = bridge.get_settings()
+    assert get_res["success"] is True
+    assert "delimiter" in get_res["settings"]
+    assert "default_data_type" in get_res["settings"]
+
+    # 2. Update settings
+    upd_res = bridge.update_settings(delimiter="/", default_data_type="Decimal")
+    assert upd_res["success"] is True
+    assert upd_res["settings"]["delimiter"] == "/"
+    assert upd_res["settings"]["default_data_type"] == "Decimal"
+
+    # 3. Reset settings
+    reset_res = bridge.reset_settings()
+    assert reset_res["success"] is True
+    assert reset_res["settings"]["delimiter"] == "\\"
+    assert reset_res["settings"]["default_data_type"] == "Text"
+
+
+def test_eel_update_settings_live_tree_recalculation():
+    # Build tree: Root -> Sub -> Item
+    bridge.reset_settings()
+    r = bridge.add_node(None, "Org", is_container=True)
+    root_id = r["node"]["id"]
+    s = bridge.add_node(root_id, "Dept", is_container=True)
+    sub_id = s["node"]["id"]
+    bridge.add_node(sub_id, "Emp", is_container=False)
+
+    # Change delimiter to /
+    res = bridge.update_settings(delimiter="/")
+    assert res["success"] is True
+    root = res["roots"][0]
+    sub = root["children"][0]
+    emp = sub["children"][0]
+    assert emp["absolute_path"] == "Org/Dept/Emp"
+
+    # Reset
+    bridge.reset_settings()
+
+
+def test_eel_update_settings_validation_error():
+    res = bridge.update_settings(delimiter="")
+    assert res["success"] is False
+    assert "error" in res
+
+
+
 

@@ -437,3 +437,40 @@ def test_read_row1_headers_and_types_strictly_max_row_1():
             os.remove(tmp_path)
 
 
+def test_custom_default_data_type_general_columns():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "ConfigTest"
+
+        # General/unformatted column
+        ws.cell(row=1, column=1, value="UnspecifiedColumn")
+        # Explicit date column
+        c2 = ws.cell(row=1, column=2, value="CreatedDate")
+        c2.number_format = "yyyy-mm-dd"
+
+        wb.save(tmp_path)
+        wb.close()
+
+        # Test with default_data_type="Decimal"
+        res_decimal = dict(ExcelHierarchyAdapter.read_row1_headers_and_types(
+            tmp_path, "ConfigTest", default_data_type="Decimal"
+        ))
+        assert res_decimal["UnspecifiedColumn"] == "Decimal"
+        assert res_decimal["CreatedDate"] == "Date"  # Explicit type preserved
+
+        # Test with default_data_type="Integer"
+        res_int = dict(ExcelHierarchyAdapter.read_row1_headers_and_types(
+            tmp_path, "ConfigTest", default_data_type="Integer"
+        ))
+        assert res_int["UnspecifiedColumn"] == "Integer"
+        assert res_int["CreatedDate"] == "Date"  # Explicit type preserved
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+

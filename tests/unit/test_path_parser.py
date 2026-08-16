@@ -148,3 +148,30 @@ class TestPathParserService:
         beta = forest.root_nodes[1]
         # Children of Beta: SecondChild first, FirstChild second
         assert [c.name for c in beta.children] == ["SecondChild", "FirstChild"]
+
+    def test_parse_custom_delimiter_forward_slash(self):
+        """Custom delimiter '/' should correctly parse multi-segment paths."""
+        paths = ["Company/Engineering/Frontend", "Company/Engineering/Backend", "Sales/Deals"]
+        forest = PathParserService.parse_header_paths(paths, delimiter="/")
+
+        assert len(forest.root_nodes) == 2
+        company = forest.root_nodes[0]
+        assert company.name == "Company"
+        eng = company.children[0]
+        assert eng.name == "Engineering"
+        assert len(eng.children) == 2
+        assert eng.children[0].get_absolute_path(delimiter="/") == "Company/Engineering/Frontend"
+        assert eng.children[1].get_absolute_path(delimiter="/") == "Company/Engineering/Backend"
+
+    def test_parse_custom_delimiter_double_colon(self):
+        """Custom delimiter '::' should correctly parse multi-segment paths."""
+        paths = ["Module::Service::Handler", "Module::Service::Router"]
+        forest = PathParserService.parse_header_paths(paths, delimiter="::")
+
+        assert len(forest.root_nodes) == 1
+        mod = forest.root_nodes[0]
+        assert mod.name == "Module"
+        svc = mod.children[0]
+        assert svc.name == "Service"
+        assert [c.name for c in svc.children] == ["Handler", "Router"]
+        assert svc.children[0].get_absolute_path(delimiter="::") == "Module::Service::Handler"

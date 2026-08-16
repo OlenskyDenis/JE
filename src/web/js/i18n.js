@@ -19,6 +19,13 @@ const I18N_DICTIONARIES = {
         workspace_title: "Робоча область конструктора ієрархії",
         workspace_sheet_label: "Аркуш:",
         workspace_no_sheet: "(Немає аркуша)",
+        view_mode_tree: "Дерево",
+        view_mode_matrix: "Блоки Excel",
+        tooltip_view_mode_tree: "Перемкнути на деревоподібний вигляд",
+        tooltip_view_mode_matrix: "Перемкнути на вигляд блоків Excel",
+        matrix_colspan_label: "Ширина (колонок)",
+        matrix_empty_title: "Немає даних для таблиці блоків",
+        matrix_empty_hint: "Імпортуйте файл Excel або створіть вузли в дереві.",
         tooltip_expand_all: "Розгорнути всі папки",
         tooltip_collapse_all: "Згорнути всі папки",
         workspace_empty_title: "Робоча область порожня",
@@ -33,6 +40,8 @@ const I18N_DICTIONARIES = {
         tab_paths: "Попередній перегляд",
         sidebar_resizer_tooltip: "Потягніть для зміни ширини (Подвійний клік для скидання)",
         sidebar_width_reset_toast: "Ширину бічної панелі скинуто до стандартної (340px).",
+        sidebar_btn_collapse: "Згорнути бічну панель",
+        sidebar_btn_expand: "Розгорнути бічну панель",
 
         // Catalog Tab
         catalog_browse_from: "Джерело колонок",
@@ -115,10 +124,26 @@ const I18N_DICTIONARIES = {
         type_badge_datetime: "Дата і час",
         type_badge_boolean: "Логічний тип",
 
+        // Modals: Settings (Feature 026)
+        btn_settings: "Налаштування",
+        tooltip_settings: "Налаштування додатку",
+        settings_modal_title: "Налаштування додатку",
+        settings_delimiter_label: "Символ розподілу шляхів",
+        settings_delimiter_help: "Символ для розділення рівнів у шляхах (за замовчуванням: \\)",
+        settings_default_type_label: "Тип даних за замовчуванням",
+        settings_default_type_help: "Застосовується для колонок Excel без явного формату (General)",
+        settings_btn_cancel: "Скасувати",
+        settings_btn_reset: "Скинути за замовчуванням",
+        settings_btn_save: "Зберегти",
+
         // Dialogs & Confirmations
         confirm_delete: "Ви впевнені, що хочете видалити цей вузол та весь його вміст?",
 
         // Toast Messages & Errors
+        toast_settings_saved: "Налаштування успішно збережено.",
+        toast_settings_reset: "Налаштування скинуто до значень за замовчуванням.",
+        toast_settings_failed: "Не вдалося зберегти налаштування.",
+        toast_delimiter_empty: "Символ розподілу не може бути порожнім.",
         toast_imported_session: "Імпортовано сесію Excel: знайдено аркушів — {count}.",
         toast_import_failed: "Не вдалося імпортувати сесію Excel.",
         toast_switched_sheet: "Активний робочий аркуш перемкнуто на «{sheet}».",
@@ -154,6 +179,13 @@ const I18N_DICTIONARIES = {
         workspace_title: "Hierarchy Constructor Workspace",
         workspace_sheet_label: "Sheet:",
         workspace_no_sheet: "(No Sheet)",
+        view_mode_tree: "Tree View",
+        view_mode_matrix: "Excel Blocks",
+        tooltip_view_mode_tree: "Switch to hierarchical tree view",
+        tooltip_view_mode_matrix: "Switch to Excel multi-level blocks view",
+        matrix_colspan_label: "Width (Columns)",
+        matrix_empty_title: "No data for block matrix",
+        matrix_empty_hint: "Import an Excel file or create nodes in the tree.",
         tooltip_expand_all: "Expand All Folders",
         tooltip_collapse_all: "Collapse All Folders",
         workspace_empty_title: "Workspace is empty",
@@ -168,6 +200,8 @@ const I18N_DICTIONARIES = {
         tab_paths: "Export Preview",
         sidebar_resizer_tooltip: "Drag to resize sidebar (Double-click to reset)",
         sidebar_width_reset_toast: "Sidebar width reset to default (340px).",
+        sidebar_btn_collapse: "Collapse Sidebar",
+        sidebar_btn_expand: "Expand Sidebar",
 
         // Catalog Tab
         catalog_browse_from: "Browse Headers From",
@@ -250,10 +284,26 @@ const I18N_DICTIONARIES = {
         type_badge_datetime: "DateTime (Timestamp)",
         type_badge_boolean: "Boolean (TRUE/FALSE)",
 
+        // Modals: Settings (Feature 026)
+        btn_settings: "Settings",
+        tooltip_settings: "Application Settings",
+        settings_modal_title: "Application Settings",
+        settings_delimiter_label: "Path Delimiter Symbol",
+        settings_delimiter_help: "Character used to separate hierarchy levels in paths (default: \\)",
+        settings_default_type_label: "Default Data Type",
+        settings_default_type_help: "Applied to Excel columns without explicit format (General)",
+        settings_btn_cancel: "Cancel",
+        settings_btn_reset: "Reset Defaults",
+        settings_btn_save: "Save",
+
         // Dialogs & Confirmations
         confirm_delete: "Are you sure you want to delete this node and all its contents?",
 
         // Toast Messages & Errors
+        toast_settings_saved: "Settings saved successfully.",
+        toast_settings_reset: "Settings reset to default values.",
+        toast_settings_failed: "Failed to save settings.",
+        toast_delimiter_empty: "Path delimiter cannot be empty.",
         toast_imported_session: "Imported Excel session: {count} sheets found.",
         toast_import_failed: "Failed to import Excel session.",
         toast_switched_sheet: "Switched active workspace sheet to '{sheet}'.",
@@ -329,6 +379,10 @@ const I18n = {
         const key = 'type_badge_' + String(type).toLowerCase();
         const translated = this.t(key);
         return (translated !== key) ? translated : String(type);
+    },
+
+    getTypeBadgeLabel(type) {
+        return this.getTypeLabel(type);
     },
 
     onLanguageChanged(callback) {

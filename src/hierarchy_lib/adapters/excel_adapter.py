@@ -8,6 +8,7 @@ from src.hierarchy_lib.models.composite import CompositeNode
 from src.hierarchy_lib.models.leaf import LeafNode
 from src.hierarchy_lib.services.forest import WorkspaceForest
 from src.hierarchy_lib.services.header_service import HeaderService
+from src.hierarchy_lib.services.settings_service import SettingsService
 
 
 class ExcelHierarchyAdapter:
@@ -37,9 +38,12 @@ class ExcelHierarchyAdapter:
     def _map_format_to_data_type(
         number_format: Optional[str],
         data_type_flag: Optional[str] = None,
-        header_name: Optional[str] = None
+        header_name: Optional[str] = None,
+        default_data_type: Optional[str] = None
     ) -> str:
         """Maps Excel number format string and cell data_type flag to one of the 9 standard Excel types."""
+        fallback_type = default_data_type if default_data_type is not None else SettingsService.get_default_data_type()
+
         if data_type_flag == "b":
             return "Boolean"
 
@@ -47,7 +51,7 @@ class ExcelHierarchyAdapter:
         if not num_fmt or num_fmt in ("@", "general"):
             if data_type_flag == "d":
                 return "Date"
-            return "Text"
+            return fallback_type
 
         has_time = any(t in num_fmt for t in ("h", "s", "am/pm"))
         has_date = any(d in num_fmt for d in ("y", "d", "mmm", "m/d")) or ("m" in num_fmt and not has_time and "/" in num_fmt)
@@ -71,13 +75,14 @@ class ExcelHierarchyAdapter:
         if num_fmt in ("0", "#,##0", "0_"):
             return "Integer"
 
-        return "Text"
+        return fallback_type
 
     @staticmethod
     def read_row1_headers_and_types(
         file_path_or_stream: Union[str, BinaryIO],
         sheet_name: str,
-        max_empty_consecutive: int = 10
+        max_empty_consecutive: int = 10,
+        default_data_type: Optional[str] = None
     ) -> List[Tuple[str, str]]:
         """
         Reads Row 1 cells strictly in streaming mode (max_row=1).
@@ -111,7 +116,8 @@ class ExcelHierarchyAdapter:
                     detected_type = ExcelHierarchyAdapter._map_format_to_data_type(
                         number_format=num_fmt,
                         data_type_flag=cell.data_type,
-                        header_name=str(val).strip()
+                        header_name=str(val).strip(),
+                        default_data_type=default_data_type
                     )
                     raw_items.append((str(val).strip(), detected_type))
                 else:
@@ -135,17 +141,21 @@ class ExcelHierarchyAdapter:
     def infer_column_types(
         file_path_or_stream: Union[str, BinaryIO],
         sheet_name: str,
-        max_rows: int = 1
+        max_rows: int = 1,
+        default_data_type: Optional[str] = None
     ) -> Dict[str, str]:
         """Infers standard Excel column data types directly from Row 1 column formats."""
-        pairs = ExcelHierarchyAdapter.read_row1_headers_and_types(file_path_or_stream, sheet_name)
+        pairs = ExcelHierarchyAdapter.read_row1_headers_and_types(
+            file_path_or_stream, sheet_name, default_data_type=default_data_type
+        )
         return dict(pairs)
 
     @staticmethod
     def read_row1_headers(
         file_path_or_stream: Union[str, BinaryIO],
         sheet_name: str,
-        max_empty_consecutive: int = 10
+        max_empty_consecutive: int = 10,
+        default_data_type: Optional[str] = None
     ) -> List[str]:
         """
         Reads Row 1 cells exclusively from the specified sheet in read_only streaming mode.
@@ -154,7 +164,10 @@ class ExcelHierarchyAdapter:
         Returns clean, deduplicated, sorted headers.
         """
         pairs = ExcelHierarchyAdapter.read_row1_headers_and_types(
-            file_path_or_stream, sheet_name, max_empty_consecutive=max_empty_consecutive
+            file_path_or_stream,
+            sheet_name,
+            max_empty_consecutive=max_empty_consecutive,
+            default_data_type=default_data_type
         )
         return HeaderService.process_headers([name for name, _ in pairs])
 
@@ -228,7 +241,6 @@ class ExcelHierarchyAdapter:
         new_wb.close()
         return total_cols
 
-
     @staticmethod
     def export_horizontal_row1_leaf_paths(
         file_path_or_stream: Union[str, BinaryIO, None],
@@ -245,11 +257,16 @@ class ExcelHierarchyAdapter:
         return len(leaf_paths)
 
     @staticmethod
-    def import_from_file(file_path_or_stream: Union[str, BinaryIO]) -> WorkspaceForest:
+    def import_from_file(
+        file_path_or_stream: Union[str, BinaryIO],
+        default_data_type: Optional[str] = None,
+        delimiter: Optional[str] = None
+    ) -> WorkspaceForest:
         """
         Parses an Excel (.xlsx) file into a WorkspaceForest.
-        Reads Row 1 / Cell A1 of each sheet in the workbook as a backslash-separated path string.
+        Reads Row 1 / Cell A1 of each sheet in the workbook as a delimited path string.
         """
+        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
         forest = WorkspaceForest()
         wb = openpyxl.load_workbook(file_path_or_stream, data_only=True)
 
@@ -259,7 +276,7 @@ class ExcelHierarchyAdapter:
                 continue
 
             path_str = str(cell_value).strip()
-            segments = [seg.strip() for seg in path_str.split("\\") if seg.strip()]
+            segments = [seg.strip() for seg in path_str.split(delim) if seg.strip()]
             if not segments:
                 continue
 
@@ -288,7 +305,7 @@ class ExcelHierarchyAdapter:
                             break
 
                     if not existing_child:
-                        leaf = LeafNode(seg_name)
+                        leaf = LeafNode(seg_name, data_type=default_data_type)
                         current_container.add_child(leaf)
                 else:
                     existing_container = None
@@ -308,23 +325,24 @@ class ExcelHierarchyAdapter:
         return forest
 
     @staticmethod
-    def export_to_file(forest: WorkspaceForest, output_path: str) -> int:
+    def export_to_file(forest: WorkspaceForest, output_path: str, delimiter: Optional[str] = None) -> int:
         """
         Exports all leaf paths from the WorkspaceForest into an Excel (.xlsx) workbook.
         Each leaf path is assigned a sheet, writing each path segment down Column A.
         Returns the total number of paths exported.
         """
+        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
         wb = openpyxl.Workbook()
         default_sheet = wb.active
         wb.remove(default_sheet)
 
-        paths = forest.get_all_leaf_paths()
+        paths = forest.get_all_leaf_paths(delimiter=delim)
         if not paths:
             sheet = wb.create_sheet(title="Hierarchy")
             sheet.cell(row=1, column=1, value="")
         else:
             for idx, path_str in enumerate(paths, start=1):
-                segments = [seg for seg in path_str.split("\\") if seg]
+                segments = [seg for seg in path_str.split(delim) if seg]
                 sheet_title = f"Path_{idx}"
                 sheet = wb.create_sheet(title=sheet_title)
 

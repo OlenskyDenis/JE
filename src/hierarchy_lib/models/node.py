@@ -2,6 +2,7 @@
 
 import uuid
 from typing import List, Dict, Any, Optional
+from src.hierarchy_lib.services.settings_service import SettingsService
 
 
 class HierarchyNode:
@@ -30,14 +31,13 @@ class HierarchyNode:
         self.children: List["HierarchyNode"] = []
         self.data_type: str = self.validate_data_type(data_type) if data_type else "Text"
 
-
     @staticmethod
     def sanitize_name(name: str) -> str:
-        """Sanitize node name to prevent unescaped backslashes breaking path delimiters."""
+        """Sanitize node name to trim whitespace and prevent unescaped control chars."""
         if not name or not str(name).strip():
             return "Unnamed Node"
         clean_name = str(name).strip()
-        return clean_name.replace("\\", "/")
+        return clean_name
 
     @property
     def is_folder(self) -> bool:
@@ -116,22 +116,23 @@ class HierarchyNode:
         """Sets data type with validation against standard Excel types."""
         self.data_type = self.validate_data_type(data_type)
 
-    def get_absolute_path(self) -> str:
-        """Recursively builds backslash-delimited path from root to this node (Root\\Folder\\Item)."""
+    def get_absolute_path(self, delimiter: Optional[str] = None) -> str:
+        """Recursively builds delimited path from root to this node (Root\\Folder\\Item)."""
+        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
         if self.parent is None:
             return self.name
-        parent_path = self.parent.get_absolute_path()
-        return f"{parent_path}\\{self.name}"
+        parent_path = self.parent.get_absolute_path(delimiter=delim)
+        return f"{parent_path}{delim}{self.name}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, delimiter: Optional[str] = None) -> Dict[str, Any]:
         """Serialize node and its children into a dictionary DTO."""
+        delim = delimiter if delimiter is not None else SettingsService.get_delimiter()
         return {
             "id": self.id,
             "name": self.name,
             "data_type": self.data_type,
             "is_folder": self.is_folder,
             "is_container": self.is_container,
-            "absolute_path": self.get_absolute_path(),
-            "children": [child.to_dict() for child in self.children]
+            "absolute_path": self.get_absolute_path(delimiter=delim),
+            "children": [child.to_dict(delimiter=delim) for child in self.children]
         }
-
