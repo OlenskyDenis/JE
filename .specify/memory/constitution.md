@@ -1,16 +1,16 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.4.0 → 1.5.0
+Version change: 1.5.0 → 1.6.0
 Modified principles:
   - Principle I: Spec-Driven Development (SDD) & Phase Scope Enforcement
-  - Principle II (AMENDED): Object-Oriented Programming (OOP), SOLID Principles, Strict YAGNI & Downward-Only Dependency Flow (Strict prohibition of domain models importing services/adapters, and mandatory direct sunset of superseded code)
+  - Principle II: Object-Oriented Programming (OOP), SOLID Principles, Strict YAGNI & Downward-Only Dependency Flow
   - Principle III: Gang of Four (GoF) Design Patterns (Dynamic Composite pattern mandatory for nested hierarchies)
-  - Principle IV (AMENDED): Library-First Approach, Test-Driven Development (TDD) & Test-Code Parity Gate (Mandatory pruning of zombie tests when code is retired)
+  - Principle IV: Library-First Approach, Test-Driven Development (TDD) & Test-Code Parity Gate
   - Principle V: Self-Contained & Environment-Independent Excel Processing (No MS Excel app requirement)
-  - Principle VI: Mandatory System Map First-Load, Full Dependency Tracing, Proactive Redundancy Audit & Retirement Verification Gate
+  - Principle VI (AMENDED): Mandatory Modular System Map First-Load, Context Router Navigation, Full Dependency Tracing, Proactive Redundancy Audit & Retirement Verification Gate (Mandatory first-step loading of .specify/system_map.md Master Router and domain-targeted loading of .specify/system_map/*.md modular maps)
   - Principle VII: Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
-Added sections: Domain Isolation Rule and Strict YAGNI in Principle II; Test-Code Parity Gate in Principle IV
+Added sections: Modular System Map Router navigation in Principle VI and Workflow Controls
 Removed sections: None
 Follow-up TODOs: None
 -->
@@ -54,18 +54,19 @@ Follow-up TODOs: None
 - Excel document reading, writing, and parsing operations must be entirely self-contained.
 - Excel processing **must run without requiring Microsoft Excel installation** or COM interop dependencies on the target host environment, utilizing streaming read-only mode for high performance.
 
-### VI. Mandatory System Map First-Load, Full Dependency Tracing, Proactive Redundancy Audit & Retirement Verification Gate
-- **Mandatory First Action**: For every new feature, change, or bug fix, the AI agent **MUST load and read [`.specify/system_map.md`](../system_map.md) as the very first step** before formulating any proposals, specifications, or architectural changes.
-- **Full Cross-Layer Dependency Tracing**: The agent must trace all upstream and downstream dependencies across the entire architecture stack:
-  - Frontend DOM elements, styles, and controllers (`index.html`, `app.js`, `tree_renderer.js`, `drag_drop.js`)
-  - RPC Bridge endpoints and contracts (`eel_bridge.py`)
-  - Core domain models and services (`HierarchyNode`, `WorkspaceForest`, `PathParserService`, `ExcelHierarchyAdapter`, etc.)
-- **Proactive Redundancy & Conflict Detection (Pre-Spec Gate)**: **BEFORE** proposing specifications or plans, the agent must actively inspect and identify:
-  - Obsolete, redundant, or orphaned UI elements (e.g. unneeded form inputs, modal controls, buttons, dead listeners)
-  - Duplicate or conflicting backend logic, classes, or endpoints
-  - Inconsistencies between UI expectations and underlying data models
-- **Retirement Verification Gate**: Before deleting or retiring any backend class, service, RPC endpoint, or frontend controller method, the agent must perform comprehensive cross-layer grep verification across all source files and test suites. Any referencing call sites or obsolete assertions must be explicitly migrated or pruned in the same feature iteration.
-- **Continuous System Map Synchronization**: Whenever any software component, model, endpoint, or UI widget is created, modified, or retired, `.specify/system_map.md` must be updated immediately to maintain absolute ground-truth accuracy.
+### VI. Mandatory Modular System Map First-Load, Context Router Navigation & Retirement Verification Gate
+- **Mandatory First Action & Router Navigation**: For every new feature, change, or bug fix, the AI agent **MUST load and read [`.specify/system_map.md`](../system_map.md) (Master Router Hub) as the very first step**. Depending on the domain of the feature, the agent must then selectively load the relevant modular map(s) in [`.specify/system_map/`](../system_map/):
+  * `domain_and_models.md` for pure domain models, data types, and tree manipulations.
+  * `views_and_ui.md` for HTML layout, CSS styling, renderers, and DOM interactions.
+  * `controllers_and_rpc.md` for JS controller actions and Eel RPC bridge endpoints.
+  * `dtos_and_contracts.md` for JSON DTO wire schemas and response formats.
+  * `infrastructure_and_adapters.md` for openpyxl I/O, OS dialogs, and file persistence.
+  * `state_and_lifecycle.md` for multi-sheet session state and dirty flag lifecycle.
+  * `tests_and_quality.md` for test registry and architecture linters.
+- **Full Cross-Layer Dependency Tracing**: The agent must trace all upstream and downstream dependencies across the active architecture layers before formulating changes.
+- **Proactive Redundancy & Conflict Detection (Pre-Spec Gate)**: **BEFORE** proposing specifications or plans, the agent must actively inspect and identify obsolete UI elements, duplicate logic, or dead endpoints and populate the Retirement & Cleanup Matrix.
+- **Retirement Verification Gate**: Before deleting or retiring any backend class, service, RPC endpoint, or frontend controller method, the agent must perform comprehensive cross-layer verification across all source files and test suites. Referencing call sites or obsolete assertions must be migrated or pruned simultaneously.
+- **Continuous System Map Synchronization**: Whenever any component, model, endpoint, or UI widget is created, modified, or retired, the master router and affected modular maps in `.specify/system_map/` must be updated immediately.
 
 ### VII. Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
 - **No Blind Acceptance**: The AI agent and specification architects must **never blindly accept UI/UX changes, element removals, or workflow redesigns** without critical analysis.
@@ -81,13 +82,13 @@ Follow-up TODOs: None
 ## Workflow & Phase Controls
 
 1. **Specify Phase**:
-   - **Step 1 (First Action)**: Load and read [`.specify/system_map.md`](../system_map.md). Trace all component dependencies.
+   - **Step 1 (First Action)**: Load and read [`.specify/system_map.md`](../system_map.md) (Router Hub) and consult the relevant modular maps in [`.specify/system_map/`](../system_map/). Trace all component dependencies.
    - **Step 2**: Proactively audit and flag any obsolete, redundant, or conflicting UI elements / code logic. Populate the Retirement & Cleanup Matrix.
    - **Step 3**: Perform **Red Teaming & Zero-Data Stress Testing** (Principle VII) to verify clean-slate usability and prevent deadlocks.
    - **Step 4**: Create and clarify requirements in feature specifications (`spec.md`). No source code writing.
 2. **Plan Phase**:
    - Produce architectural decisions, component contracts, and research documents (`plan.md`).
-   - Re-verify Red Teaming findings and update [`.specify/system_map.md`](../system_map.md). No source code writing.
+   - Re-verify Red Teaming findings and update the relevant modular maps in [`.specify/system_map/`](../system_map/). No source code writing.
 3. **Tasks Phase**:
    - Generate discrete, testable action items (`tasks.md`), including edge case test coverage and hygiene cleanup tasks. No source code writing.
 4. **Analyze Phase**:
@@ -101,4 +102,4 @@ Follow-up TODOs: None
 - This constitution supersedes all informal team conventions or ad-hoc practices.
 - Every pull request, spec review, and task breakdown must be verified for compliance against these principles.
 
-**Version**: 1.5.0 | **Ratified**: 2026-08-13 | **Last Amended**: 2026-08-16
+**Version**: 1.6.0 | **Ratified**: 2026-08-13 | **Last Amended**: 2026-08-16
