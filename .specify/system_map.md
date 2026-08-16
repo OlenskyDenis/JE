@@ -107,3 +107,4 @@ Whenever a new feature is specified (`/speckit.specify`) or planned (`/speckit.p
 1. **Load this Router**: Identify which modular map files are affected by the proposed changes.
 2. **Consult & Update the Affected Modular Maps**: Ensure any new classes, endpoints, or DOM elements are documented in the corresponding layer map.
 3. **Enforce Strict Sunset (Principle II)**: If an entity is replaced, delete it immediately and record it as `🔴 Retired` in the appropriate layer map.
+4. **Level-3 Decomposition Guardrail (Principle VI)**: Modular maps in `.specify/system_map/` are kept at Level 2. If any layer map exceeds **15–20 KB (~4 000 tokens)**, decompose it into a Level-3 sub-router and dedicated micro-maps. Sub-routing below this threshold is prohibited to prevent navigational tool hop overhead.

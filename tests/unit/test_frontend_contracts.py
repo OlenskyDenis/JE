@@ -124,3 +124,18 @@ class TestFrontendContracts:
                     _, key = pair.split(":", 1)
                     key = key.strip()
                     assert key in uk_keys, f"data-i18n-attr key '{key}' in index.html is not defined in i18n.js"
+
+    def test_unique_level_renderer_contract(self):
+        """Verify that unique_level_renderer.js implements required API methods and partitions leaves."""
+        js_file = JS_DIR / "unique_level_renderer.js"
+        assert js_file.exists(), f"unique_level_renderer.js not found at {js_file}"
+        content = js_file.read_text(encoding="utf-8")
+
+        assert "extractUniqueLevels(roots)" in content
+        assert "renderUniqueLevels(roots, containerEl)" in content
+        assert "level-group-leaves" in content
+        assert "level-group-branches" in content
+        assert "level-group-separator" in content
+        assert "level_subgroup_leaves" in content
+        assert "level_subgroup_branches" in content
+

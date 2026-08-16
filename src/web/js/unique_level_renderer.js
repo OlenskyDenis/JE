@@ -1,8 +1,9 @@
 /**
- * Unique Level Hierarchy View Renderer (Feature 028)
+ * Unique Level Hierarchy View Renderer (Features 028, 030)
  * Deconstructs multi-root tree forests into horizontal stacked level rows
- * containing deduplicated unique header terms, with cross-level duplicate detection
- * and synchronized interactive hover highlights.
+ * containing deduplicated unique header terms partitioned into leaf elements first
+ * and branch elements second, separated by an aesthetic visual paragraph divider,
+ * with cross-level duplicate detection and synchronized interactive hover highlights.
  */
 
 const UniqueLevelRenderer = {
@@ -16,7 +17,8 @@ const UniqueLevelRenderer = {
 
     /**
      * Extracts and deduplicates unique header terms per depth level,
-     * computing cross-level term overlap across the entire forest.
+     * classifying each term as leaf or branch, and computing cross-level
+     * term overlap across the entire forest.
      */
     extractUniqueLevels(roots) {
         if (!roots || !Array.isArray(roots) || roots.length === 0) {
@@ -43,12 +45,17 @@ const UniqueLevelRenderer = {
                     name: node.name,
                     normalized: norm,
                     dataType: node.data_type || 'Text',
-                    isFolder: !!(node.children && node.children.length > 0),
+                    isFolder: false,
                     count: 0,
                     paths: [],
                     dataTypes: new Set()
                 };
                 levelMaps[depth].set(norm, entry);
+            }
+
+            const nodeHasChildren = !!(node.children && Array.isArray(node.children) && node.children.length > 0);
+            if (nodeHasChildren) {
+                entry.isFolder = true;
             }
 
             entry.nodeIds.push(node.id);
@@ -105,6 +112,7 @@ const UniqueLevelRenderer = {
                     normalized: item.normalized,
                     dataType: item.dataType,
                     isFolder: item.isFolder,
+                    isLeaf: !item.isFolder,
                     count: item.count,
                     paths: item.paths,
                     dataTypes: Array.from(item.dataTypes),
@@ -114,9 +122,15 @@ const UniqueLevelRenderer = {
                 };
             });
 
-            // Sort alphabetically for clean scannability
-            items.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+            // Partition items: Leaf elements first (no children), Branch elements second (with children)
+            const leafItems = items.filter(it => !it.isFolder);
+            const branchItems = items.filter(it => it.isFolder);
 
+            // Sort each group alphabetically for clean scannability
+            leafItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+            branchItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+            const sortedItems = [...leafItems, ...branchItems];
             const crossMatchCount = items.filter(it => it.isCrossMatch).length;
             const title = lvl === 0
                 ? t('level_roots_title')
@@ -126,14 +140,53 @@ const UniqueLevelRenderer = {
                 level: lvl,
                 title,
                 uniqueCount: items.length,
+                leafCount: leafItems.length,
+                branchCount: branchItems.length,
                 crossMatchCount,
-                items
+                leafItems,
+                branchItems,
+                items: sortedItems
             };
         });
     },
 
     /**
-     * Renders the complete level-by-level unique headers view into containerEl.
+     * Renders a list of chips into HTML string.
+     */
+    renderChipsList(itemsList) {
+        if (!itemsList || itemsList.length === 0) return '';
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+
+        return itemsList.map(item => {
+            const freqBadgeHtml = item.count > 1
+                ? `<span class="chip-freq-badge" title="${this.escapeHtml(t('level_unique_stat', { count: item.count }))}">×${item.count}</span>`
+                : '';
+
+            const crossMatchBadgeHtml = item.isCrossMatch
+                ? `<span class="chip-cross-badge">${this.escapeHtml(t('chip_match_badge', { levels: item.matchingLevels.join(', ') }))}</span>`
+                : '';
+
+            return `
+                <div class="level-header-chip ${item.isCrossMatch ? 'has-cross-match' : ''} ${item.isFolder ? 'is-branch-chip' : 'is-leaf-chip'}"
+                     data-term="${this.escapeHtml(item.normalized)}"
+                     data-node-id="${this.escapeHtml(item.nodeId)}"
+                     data-node-name="${this.escapeHtml(item.name)}"
+                     data-data-type="${this.escapeHtml(item.dataType || 'Text')}"
+                     data-is-folder="${item.isFolder}"
+                     data-node-ids="${this.escapeHtml(item.nodeIds.join(','))}"
+                     data-count="${item.count}"
+                     title="${this.escapeHtml(item.tooltip)}">
+                    <span class="chip-title">${this.escapeHtml(item.name)}</span>
+                    ${freqBadgeHtml}
+                    ${crossMatchBadgeHtml}
+                </div>
+            `;
+        }).join('');
+    },
+
+    /**
+     * Renders the complete level-by-level unique headers view into containerEl,
+     * partitioning leaf elements first, visual paragraph separator, and branch elements second.
      */
     renderUniqueLevels(roots, containerEl) {
         if (!containerEl) return;
@@ -160,31 +213,60 @@ const UniqueLevelRenderer = {
         const levelRows = this.extractUniqueLevels(roots);
 
         const rowsHtml = levelRows.map(row => {
-            const chipsHtml = row.items.map(item => {
-                const freqBadgeHtml = item.count > 1
-                    ? `<span class="chip-freq-badge" title="${this.escapeHtml(t('level_unique_stat', { count: item.count }))}">×${item.count}</span>`
+            const hasLeaves = row.leafItems && row.leafItems.length > 0;
+            const hasBranches = row.branchItems && row.branchItems.length > 0;
+
+            let groupsHtml = '';
+
+            if (hasLeaves) {
+                const leafChipsHtml = this.renderChipsList(row.leafItems);
+                const leafHeaderHtml = (hasLeaves && hasBranches)
+                    ? `
+                        <div class="level-subgroup-header">
+                            <span class="level-subgroup-title">${this.escapeHtml(t('level_subgroup_leaves'))}</span>
+                            <span class="level-subgroup-pill level-subgroup-pill-leaf">${row.leafItems.length}</span>
+                        </div>
+                      `
                     : '';
 
-                const crossMatchBadgeHtml = item.isCrossMatch
-                    ? `<span class="chip-cross-badge">${this.escapeHtml(t('chip_match_badge', { levels: item.matchingLevels.join(', ') }))}</span>`
-                    : '';
-
-                return `
-                    <div class="level-header-chip ${item.isCrossMatch ? 'has-cross-match' : ''}"
-                         data-term="${this.escapeHtml(item.normalized)}"
-                         data-node-id="${this.escapeHtml(item.nodeId)}"
-                         data-node-name="${this.escapeHtml(item.name)}"
-                         data-data-type="${this.escapeHtml(item.dataType || 'Text')}"
-                         data-is-folder="${item.isFolder}"
-                         data-node-ids="${this.escapeHtml(item.nodeIds.join(','))}"
-                         data-count="${item.count}"
-                         title="${this.escapeHtml(item.tooltip)}">
-                        <span class="chip-title">${this.escapeHtml(item.name)}</span>
-                        ${freqBadgeHtml}
-                        ${crossMatchBadgeHtml}
+                groupsHtml += `
+                    <div class="level-subgroup level-group-leaves">
+                        ${leafHeaderHtml}
+                        <div class="level-chips-container">
+                            ${leafChipsHtml}
+                        </div>
                     </div>
                 `;
-            }).join('');
+            }
+
+            if (hasLeaves && hasBranches) {
+                groupsHtml += `
+                    <div class="level-group-separator" role="separator">
+                        <span class="level-group-separator-line"></span>
+                    </div>
+                `;
+            }
+
+            if (hasBranches) {
+                const branchChipsHtml = this.renderChipsList(row.branchItems);
+                const branchHeaderHtml = (hasLeaves && hasBranches)
+                    ? `
+                        <div class="level-subgroup-header">
+                            <span class="level-subgroup-title">${this.escapeHtml(t('level_subgroup_branches'))}</span>
+                            <span class="level-subgroup-pill level-subgroup-pill-branch">${row.branchItems.length}</span>
+                        </div>
+                      `
+                    : '';
+
+                groupsHtml += `
+                    <div class="level-subgroup level-group-branches">
+                        ${branchHeaderHtml}
+                        <div class="level-chips-container">
+                            ${branchChipsHtml}
+                        </div>
+                    </div>
+                `;
+            }
 
             const matchStatHtml = row.crossMatchCount > 0
                 ? `<span class="level-badge-match">${this.escapeHtml(t('level_match_stat', { count: row.crossMatchCount }))}</span>`
@@ -200,8 +282,8 @@ const UniqueLevelRenderer = {
                             ${matchStatHtml}
                         </div>
                     </div>
-                    <div class="level-chips-container">
-                        ${chipsHtml}
+                    <div class="level-subgroups-wrapper">
+                        ${groupsHtml}
                     </div>
                 </div>
             `;

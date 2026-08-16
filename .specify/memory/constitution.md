@@ -1,17 +1,17 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.6.0 → 1.7.0
+Version change: 1.7.0 → 1.8.0
 Modified principles:
   - Principle I: Spec-Driven Development (SDD) & Phase Scope Enforcement
   - Principle II: Object-Oriented Programming (OOP), SOLID Principles, Strict YAGNI & Downward-Only Dependency Flow
   - Principle III: Gang of Four (GoF) Design Patterns (Dynamic Composite pattern mandatory for nested hierarchies)
   - Principle IV: Library-First Approach, Test-Driven Development (TDD) & Test-Code Parity Gate
   - Principle V: Self-Contained & Environment-Independent Excel Processing (No MS Excel app requirement)
-  - Principle VI: Mandatory Modular System Map First-Load, Context Router Navigation, Full Dependency Tracing, Proactive Redundancy Audit & Retirement Verification Gate
+  - Principle VI: Mandatory Modular System Map First-Load, Context Router Navigation, Full Dependency Tracing, Level-3 Decomposition Threshold (15-20 KB Guardrail), Proactive Redundancy Audit & Retirement Verification Gate
   - Principle VII: Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
-  - Principle VIII (ADDED): 200-Line Modularity Threshold & File Scope Guardrail (Mandatory evaluation and decomposition of any source file exceeding 200 lines to enforce SRP and eliminate complexity bloat)
-Added sections: Principle VIII in Core Principles and Workflow Controls
+  - Principle VIII: 200-Line Modularity Threshold & File Scope Guardrail
+Added sections: Level-3 Decomposition Guardrail in Principle VI
 Removed sections: None
 Follow-up TODOs: None
 -->
@@ -67,6 +67,7 @@ Follow-up TODOs: None
 - **Full Cross-Layer Dependency Tracing**: The agent must trace all upstream and downstream dependencies across the active architecture layers before formulating changes.
 - **Proactive Redundancy & Conflict Detection (Pre-Spec Gate)**: **BEFORE** proposing specifications or plans, the agent must actively inspect and identify obsolete UI elements, duplicate logic, or dead endpoints and populate the Retirement & Cleanup Matrix.
 - **Retirement Verification Gate**: Before deleting or retiring any backend class, service, RPC endpoint, or frontend controller method, the agent must perform comprehensive cross-layer verification across all source files and test suites. Referencing call sites or obsolete assertions must be migrated or pruned simultaneously.
+- **Level-3 Decomposition Guardrail (15–20 KB / ~4 000 Tokens Threshold)**: Individual modular system maps in `.specify/system_map/` must remain compact and focused. If any individual modular map exceeds **15–20 KB (or ~4 000 tokens)**, it must be decomposed into a Level-3 sub-router and dedicated micro-component maps (e.g. decomposing `views_and_ui.md` into `views_router.md` + individual renderer/sub-component maps). Sub-routing is prohibited before reaching this threshold to prevent unnecessary navigational tool hop overhead and token waste.
 - **Continuous System Map Synchronization**: Whenever any component, model, endpoint, or UI widget is created, modified, or retired, the master router and affected modular maps in `.specify/system_map/` must be updated immediately.
 
 ### VII. Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
