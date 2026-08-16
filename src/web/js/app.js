@@ -72,9 +72,10 @@ const App = {
         this.folderTypeHint = document.getElementById('folderTypeHint');
         this.btnModalSubmit = document.getElementById('btnModalSubmit');
 
-        // Toolbar Collapse / Expand buttons (Feature 011)
+        // Toolbar Collapse / Expand & Add Root buttons (Feature 011 & 025)
         this.btnExpandAll = document.getElementById('btnExpandAll');
         this.btnCollapseAll = document.getElementById('btnCollapseAll');
+        this.btnAddRootHeader = document.getElementById('btnAddRootHeader');
 
         // Language switcher buttons (Feature 023)
         this.langBtnUk = document.getElementById('langBtnUk');
@@ -142,6 +143,9 @@ const App = {
         const btnCreateRootEmpty = document.getElementById('btnCreateRootEmpty');
         if (btnCreateRootEmpty) {
             btnCreateRootEmpty.addEventListener('click', () => this.openAddModal(null, t("modal_create_title")));
+        }
+        if (this.btnAddRootHeader) {
+            this.btnAddRootHeader.addEventListener('click', () => this.openAddModal(null, t("modal_create_title")));
         }
         document.getElementById('btnRefresh').addEventListener('click', () => this.refreshWorkspace());
 
@@ -364,10 +368,16 @@ const App = {
                 return;
             }
 
+            const addRootCanvasBtn = e.target.closest('#btnAddRootCanvas, .btn-add-root-canvas');
+            if (addRootCanvasBtn) {
+                this.openAddModal(null, t("modal_create_title"));
+                return;
+            }
+
             const addBtn = e.target.closest('.action-btn.add-child');
             if (addBtn) {
                 const parentId = addBtn.dataset.id;
-                this.openAddModal(parentId, "Add Child Node");
+                this.openAddModal(parentId, t("tooltip_add_child"));
                 return;
             }
 
@@ -774,9 +784,9 @@ const App = {
             itemEl.className = 'sidebar-header-item';
             itemEl.dataset.headerLabel = item.label;
             itemEl.dataset.dataType = item.type || 'Text';
-
+            const itemTypeLabel = window.I18n ? I18n.getTypeLabel(item.type) : (item.type || 'Text');
             const sheetTagHtml = item.sheet ? `<span class="header-sheet-tag">${this.escapeHtml(item.sheet)}</span>` : '';
-            const typeTagHtml = `<span class="header-type-tag">${this.escapeHtml(item.type || 'Text')}</span>`;
+            const typeTagHtml = `<span class="header-type-tag" title="${t('tooltip_data_type_badge')}">${this.escapeHtml(itemTypeLabel)}</span>`;
 
             itemEl.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1;">

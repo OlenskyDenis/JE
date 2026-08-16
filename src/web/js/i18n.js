@@ -24,6 +24,9 @@ const I18N_DICTIONARIES = {
         workspace_empty_title: "Робоча область порожня",
         workspace_empty_hint: "Імпортуйте файл Excel, перетягніть колонки з каталогу або створіть з нуля:",
         btn_create_root: "Створити кореневий вузол",
+        btn_add_root_header: "Кореневий вузол",
+        btn_add_root_canvas: "Створити кореневий вузол",
+        tooltip_add_root: "Створити новий кореневий вузол",
 
         // Sidebar Tabs & Splitter
         tab_catalog: "Каталог колонок",
@@ -101,6 +104,17 @@ const I18N_DICTIONARIES = {
         type_datetime: "Дата і час (DateTime)",
         type_boolean: "Логічний тип (TRUE/FALSE)",
 
+        // Data Types (Display Badges)
+        type_badge_text: "Текст (Рядок)",
+        type_badge_integer: "Ціле число",
+        type_badge_decimal: "Дробове число",
+        type_badge_currency: "Валюта",
+        type_badge_percentage: "Відсоток",
+        type_badge_date: "Дата",
+        type_badge_time: "Час",
+        type_badge_datetime: "Дата і час",
+        type_badge_boolean: "Логічний тип",
+
         // Dialogs & Confirmations
         confirm_delete: "Ви впевнені, що хочете видалити цей вузол та весь його вміст?",
 
@@ -145,6 +159,9 @@ const I18N_DICTIONARIES = {
         workspace_empty_title: "Workspace is empty",
         workspace_empty_hint: "Import an Excel file, drag headers from the catalog, or start from scratch:",
         btn_create_root: "Create Root Node",
+        btn_add_root_header: "Root Node",
+        btn_add_root_canvas: "Create Root Node",
+        tooltip_add_root: "Create new root node",
 
         // Sidebar Tabs & Splitter
         tab_catalog: "Header Catalog",
@@ -222,6 +239,17 @@ const I18N_DICTIONARIES = {
         type_datetime: "DateTime (Timestamp)",
         type_boolean: "Boolean (TRUE/FALSE)",
 
+        // Data Types (Display Badges)
+        type_badge_text: "Text (String)",
+        type_badge_integer: "Integer (Whole Number)",
+        type_badge_decimal: "Decimal (Float)",
+        type_badge_currency: "Currency ($#,##0.00)",
+        type_badge_percentage: "Percentage (%)",
+        type_badge_date: "Date (YYYY-MM-DD)",
+        type_badge_time: "Time (HH:MM:SS)",
+        type_badge_datetime: "DateTime (Timestamp)",
+        type_badge_boolean: "Boolean (TRUE/FALSE)",
+
         // Dialogs & Confirmations
         confirm_delete: "Are you sure you want to delete this node and all its contents?",
 
@@ -294,6 +322,13 @@ const I18n = {
             });
         }
         return text;
+    },
+
+    getTypeLabel(type) {
+        if (!type) return 'Text';
+        const key = 'type_badge_' + String(type).toLowerCase();
+        const translated = this.t(key);
+        return (translated !== key) ? translated : String(type);
     },
 
     onLanguageChanged(callback) {

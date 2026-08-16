@@ -17,6 +17,18 @@ const TreeRenderer = {
             const nodeEl = this.createNodeElement(root, collapsedNodeIds);
             containerEl.appendChild(nodeEl);
         });
+
+        // Feature 025: Append quick-add root action row at bottom of tree canvas
+        const footerActions = document.createElement('div');
+        footerActions.className = 'tree-footer-actions';
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        footerActions.innerHTML = `
+            <button id="btnAddRootCanvas" class="btn-add-root-canvas" title="${t('tooltip_add_root')}">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                <span>${this.escapeHtml(t('btn_add_root_canvas'))}</span>
+            </button>
+        `;
+        containerEl.appendChild(footerActions);
     },
 
     createNodeElement(node, collapsedNodeIds = null) {
@@ -48,8 +60,9 @@ const TreeRenderer = {
                </button>`
             : `<span class="node-toggle-spacer"></span>`;
 
+        const typeLabel = window.I18n ? I18n.getTypeLabel(node.data_type) : (node.data_type || 'Text');
         const typeBadgeHtml = !isFolder
-            ? `<span class="node-type-badge" data-type="${this.escapeHtml(node.data_type || 'Text')}" title="${t('tooltip_data_type_badge')}">${this.escapeHtml(node.data_type || 'Text')}</span>`
+            ? `<span class="node-type-badge" data-type="${this.escapeHtml(node.data_type || 'Text')}" title="${t('tooltip_data_type_badge')}">${this.escapeHtml(typeLabel)}</span>`
             : '';
 
         content.innerHTML = `
@@ -122,11 +135,12 @@ const TreeRenderer = {
         }
 
         leafItems.forEach(item => {
+            const itemTypeLabel = window.I18n ? I18n.getTypeLabel(item.type) : item.type;
             const pathCard = document.createElement('div');
             pathCard.className = 'path-card';
             pathCard.innerHTML = `
                 <span class="path-text">${this.escapeHtml(item.path)}</span>
-                <span class="node-type-badge" data-type="${this.escapeHtml(item.type)}">${this.escapeHtml(item.type)}</span>
+                <span class="node-type-badge" data-type="${this.escapeHtml(item.type)}" title="${t('tooltip_data_type_badge')}">${this.escapeHtml(itemTypeLabel)}</span>
             `;
             pathListEl.appendChild(pathCard);
         });

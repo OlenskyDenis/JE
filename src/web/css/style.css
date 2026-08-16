@@ -512,6 +512,42 @@ body.is-resizing * {
     gap: 8px;
 }
 
+/* Tree Canvas Bottom Actions (Feature 025) */
+.tree-footer-actions {
+    margin-top: 8px;
+    padding-top: 4px;
+}
+
+.btn-add-root-canvas {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background-color: rgba(30, 41, 59, 0.4);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-add-root-canvas:hover {
+    background-color: var(--bg-card-hover);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    border-style: solid;
+}
+
+.btn-add-root-canvas svg {
+    width: 16px;
+    height: 16px;
+}
+
 .tree-node {
     margin-left: 0px;
     display: flex;
