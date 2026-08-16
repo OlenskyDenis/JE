@@ -1,38 +1,40 @@
 """Unit tests for PathParserService hierarchical path parsing and tree construction."""
 
 import pytest
-from src.hierarchy_lib.models.composite import CompositeNode
-from src.hierarchy_lib.models.leaf import LeafNode
+from src.hierarchy_lib.models.node import HierarchyNode
 from src.hierarchy_lib.services.path_parser import PathParserService
 
 
 class TestPathParserService:
-    """Test suite verifying PathParserService correctly transforms path strings into Composite hierarchies."""
+    """Test suite verifying PathParserService correctly transforms path strings into HierarchyNode hierarchies."""
 
     def test_parse_single_nested_path(self):
-        """'Root\\Folder\\Leaf' should create Root (Composite) -> Folder (Composite) -> Leaf (LeafNode)."""
+        """'Root\\Folder\\Leaf' should create Root (folder) -> Folder (folder) -> Leaf (leaf)."""
         paths = [r"Root\Folder\Leaf"]
         forest = PathParserService.parse_header_paths(paths)
 
         assert len(forest.root_nodes) == 1
         root = forest.root_nodes[0]
-        assert isinstance(root, CompositeNode)
+        assert isinstance(root, HierarchyNode)
+        assert root.is_folder is True
         assert root.name == "Root"
         assert len(root.children) == 1
 
         folder = root.children[0]
-        assert isinstance(folder, CompositeNode)
+        assert isinstance(folder, HierarchyNode)
+        assert folder.is_folder is True
         assert folder.name == "Folder"
         assert len(folder.children) == 1
 
         leaf = folder.children[0]
-        assert isinstance(leaf, LeafNode)
+        assert isinstance(leaf, HierarchyNode)
+        assert leaf.is_folder is False
         assert leaf.name == "Leaf"
         assert not leaf.is_container
         assert leaf.get_absolute_path() == r"Root\Folder\Leaf"
 
     def test_parse_shared_prefix_branches_merged(self):
-        """Shared parent folders should be merged into single CompositeNode instances."""
+        """Shared parent folders should be merged into single HierarchyNode instances."""
         paths = [
             r"Company\HR\Employees",
             r"Company\HR\Salaries",
@@ -47,19 +49,21 @@ class TestPathParserService:
 
         hr = next((c for c in company.children if c.name == "HR"), None)
         assert hr is not None
-        assert isinstance(hr, CompositeNode)
+        assert isinstance(hr, HierarchyNode)
+        assert hr.is_folder is True
         assert len(hr.children) == 2
         hr_leaves = [c.name for c in hr.children]
         assert "Employees" in hr_leaves
         assert "Salaries" in hr_leaves
-        assert all(isinstance(c, LeafNode) for c in hr.children)
+        assert all(not c.is_folder for c in hr.children)
 
         finance = next((c for c in company.children if c.name == "Finance"), None)
         assert finance is not None
-        assert isinstance(finance, CompositeNode)
+        assert isinstance(finance, HierarchyNode)
+        assert finance.is_folder is True
         assert len(finance.children) == 1
         assert finance.children[0].name == "Invoices"
-        assert isinstance(finance.children[0], LeafNode)
+        assert finance.children[0].is_folder is False
 
     def test_parse_single_segment_header(self):
         """Headers without backslash delimiter should create a top-level root node."""
@@ -81,12 +85,14 @@ class TestPathParserService:
         for expected_name in ["B", "C", "D", "E"]:
             assert len(curr.children) == 1
             curr = curr.children[0]
-            assert isinstance(curr, CompositeNode)
+            assert isinstance(curr, HierarchyNode)
+            assert curr.is_folder is True
             assert curr.name == expected_name
 
         assert len(curr.children) == 1
         leaf = curr.children[0]
-        assert isinstance(leaf, LeafNode)
+        assert isinstance(leaf, HierarchyNode)
+        assert leaf.is_folder is False
         assert leaf.name == "LeafItem"
         assert leaf.get_absolute_path() == r"A\B\C\D\E\LeafItem"
 
@@ -148,3 +154,30 @@ class TestPathParserService:
         beta = forest.root_nodes[1]
         # Children of Beta: SecondChild first, FirstChild second
         assert [c.name for c in beta.children] == ["SecondChild", "FirstChild"]
+
+    def test_parse_custom_delimiter_forward_slash(self):
+        """Custom delimiter '/' should correctly parse multi-segment paths."""
+        paths = ["Company/Engineering/Frontend", "Company/Engineering/Backend", "Sales/Deals"]
+        forest = PathParserService.parse_header_paths(paths, delimiter="/")
+
+        assert len(forest.root_nodes) == 2
+        company = forest.root_nodes[0]
+        assert company.name == "Company"
+        eng = company.children[0]
+        assert eng.name == "Engineering"
+        assert len(eng.children) == 2
+        assert eng.children[0].get_absolute_path(delimiter="/") == "Company/Engineering/Frontend"
+        assert eng.children[1].get_absolute_path(delimiter="/") == "Company/Engineering/Backend"
+
+    def test_parse_custom_delimiter_double_colon(self):
+        """Custom delimiter '::' should correctly parse multi-segment paths."""
+        paths = ["Module::Service::Handler", "Module::Service::Router"]
+        forest = PathParserService.parse_header_paths(paths, delimiter="::")
+
+        assert len(forest.root_nodes) == 1
+        mod = forest.root_nodes[0]
+        assert mod.name == "Module"
+        svc = mod.children[0]
+        assert svc.name == "Service"
+        assert [c.name for c in svc.children] == ["Handler", "Router"]
+        assert svc.children[0].get_absolute_path(delimiter="::") == "Module::Service::Handler"

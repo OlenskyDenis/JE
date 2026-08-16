@@ -42,57 +42,6 @@ def test_get_sheet_names_and_read_row1_headers():
             os.remove(tmp_path)
 
 
-def test_export_horizontal_row1_leaf_paths():
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-        tmp_path = tmp.name
-
-    try:
-        # Create base workbook with multiple sheets and data rows in Row 2+
-        wb = openpyxl.Workbook()
-        ws1 = wb.active
-        ws1.title = "DataSheet"
-        ws1.cell(row=1, column=1, value="OldHeader1")
-        ws1.cell(row=2, column=1, value="ShouldBeStrippedData")
-        ws1.cell(row=3, column=1, value="ShouldBeStrippedDataRow3")
-        ws2 = wb.create_sheet(title="UneditedSheet")
-        ws2.cell(row=1, column=1, value="UnchangedHeader")
-        ws2.cell(row=2, column=1, value="ShouldBeStrippedDataInSheet2")
-        wb.save(tmp_path)
-        wb.close()
-
-        # Export reconstructed horizontal leaf paths into Row 1 of DataSheet
-        new_paths = ["Root\\Folder1\\ItemA", "Root\\Folder2\\ItemB"]
-        cols_written = ExcelHierarchyAdapter.export_horizontal_row1_leaf_paths(
-            file_path_or_stream=tmp_path,
-            sheet_name="DataSheet",
-            leaf_paths=new_paths,
-            output_path=tmp_path
-        )
-
-        assert cols_written == 2
-
-        # Verify output file is a clean template with all sheets preserved and ZERO data rows
-        wb_out = openpyxl.load_workbook(tmp_path)
-        assert wb_out.sheetnames == ["DataSheet", "UneditedSheet"]
-
-        ws_data = wb_out["DataSheet"]
-        assert ws_data.cell(row=1, column=1).value == "Root\\Folder1\\ItemA"
-        assert ws_data.cell(row=1, column=2).value == "Root\\Folder2\\ItemB"
-        # Verify Row 2+ data is stripped (max_row == 1, row 2 is None)
-        assert ws_data.max_row == 1
-        assert ws_data.cell(row=2, column=1).value is None
-
-        # Verify UneditedSheet preserved with its original Row 1 header and zero data rows
-        ws_unedited = wb_out["UneditedSheet"]
-        assert ws_unedited.cell(row=1, column=1).value == "UnchangedHeader"
-        assert ws_unedited.max_row == 1
-        assert ws_unedited.cell(row=2, column=1).value is None
-        wb_out.close()
-
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-
 
 def test_export_multi_sheet_template():
     with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_src, \
@@ -163,11 +112,10 @@ def test_export_multi_sheet_template():
 
 def test_round_trip_parse_and_export():
     from src.hierarchy_lib.services.path_parser import PathParserService
-    from src.hierarchy_lib.services.path_generator import PathGenerator
 
     initial_headers = [r"Company\HR\Employees", r"Company\HR\Salaries", r"Company\Finance\Invoices"]
     forest = PathParserService.parse_header_paths(initial_headers)
-    leaf_paths = PathGenerator.calculate_all_paths(forest)
+    leaf_paths = forest.get_all_leaf_paths()
 
     assert leaf_paths == initial_headers
 
@@ -271,3 +219,167 @@ def test_read_row1_headers_whitespace_counts_as_empty():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+
+def test_export_multi_sheet_template_with_cell_number_formats():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_out:
+        out_path = tmp_out.name
+
+    try:
+        sheet_map = {
+            "Finance": [
+                {"path": "Company\\Finance\\Revenue", "type": "Currency"},
+                {"path": "Company\\Finance\\Date", "type": "Date"},
+                {"path": "Company\\Finance\\Units", "type": "Integer"},
+                {"path": "Company\\Finance\\TaxRate", "type": "Percentage"},
+                {"path": "Company\\Finance\\Notes", "type": "Text"},
+            ]
+        }
+
+        ExcelHierarchyAdapter.export_multi_sheet_template(
+            file_path_or_stream=None,
+            sheet_leaf_paths_map=sheet_map,
+            output_path=out_path
+        )
+
+        wb_out = openpyxl.load_workbook(out_path)
+        ws = wb_out["Finance"]
+
+        # Check Row 1 headers
+        assert ws.cell(row=1, column=1).value == "Company\\Finance\\Revenue"
+        assert ws.cell(row=1, column=2).value == "Company\\Finance\\Date"
+        assert ws.cell(row=1, column=3).value == "Company\\Finance\\Units"
+        assert ws.cell(row=1, column=4).value == "Company\\Finance\\TaxRate"
+        assert ws.cell(row=1, column=5).value == "Company\\Finance\\Notes"
+
+        # Check openpyxl number_format
+        assert "$" in ws.cell(row=1, column=1).number_format or ws.cell(row=1, column=1).number_format == openpyxl.styles.numbers.FORMAT_CURRENCY_USD_SIMPLE or "#,##0" in ws.cell(row=1, column=1).number_format
+        assert "yy" in ws.cell(row=1, column=2).number_format.lower() or "dd" in ws.cell(row=1, column=2).number_format.lower()
+        assert ws.cell(row=1, column=3).number_format in ("0", "#,##0")
+        assert "%" in ws.cell(row=1, column=4).number_format
+        assert ws.cell(row=1, column=5).number_format in ("@", "General")
+        wb_out.close()
+    finally:
+        if os.path.exists(out_path):
+            os.remove(out_path)
+
+
+def test_read_row1_headers_and_types_all_formats():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "FormatSheet"
+
+        headers_and_fmts = [
+            ("Revenue", '"$"#,##0.00'),
+            ("HireDate", "yyyy-mm-dd"),
+            ("EventTime", "hh:mm:ss"),
+            ("CreatedAt", "yyyy-mm-dd hh:mm:ss"),
+            ("TaxRate", "0.00%"),
+            ("Quantity", "0"),
+            ("UnitPrice", "0.00"),
+            ("Notes", "@"),
+        ]
+
+        for col_idx, (hdr, fmt) in enumerate(headers_and_fmts, start=1):
+            cell = ws.cell(row=1, column=col_idx, value=hdr)
+            cell.number_format = fmt
+
+        wb.save(tmp_path)
+        wb.close()
+
+        res = ExcelHierarchyAdapter.read_row1_headers_and_types(tmp_path, "FormatSheet")
+        res_dict = dict(res)
+        assert res_dict["Revenue"] == "Currency"
+        assert res_dict["HireDate"] == "Date"
+        assert res_dict["EventTime"] == "Time"
+        assert res_dict["CreatedAt"] == "DateTime"
+        assert res_dict["TaxRate"] == "Percentage"
+        assert res_dict["Quantity"] == "Integer"
+        assert res_dict["UnitPrice"] == "Decimal"
+        assert res_dict["Notes"] == "Text"
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_read_row1_headers_and_types_strictly_max_row_1():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "MassiveSheet"
+
+        c1 = ws.cell(row=1, column=1, value="Salary")
+        c1.number_format = '"$"#,##0.00'
+        c2 = ws.cell(row=1, column=2, value="StartDate")
+        c2.number_format = "yyyy-mm-dd"
+        c3 = ws.cell(row=1, column=3, value="Description")
+
+        # 10,000 data rows to test zero data row loading
+        for r in range(2, 10002):
+            ws.cell(row=r, column=1, value=50000 + r)
+            ws.cell(row=r, column=2, value="2026-01-01")
+            ws.cell(row=r, column=3, value=f"User {r}")
+
+        wb.save(tmp_path)
+        wb.close()
+
+        import time
+        t0 = time.perf_counter()
+        res = ExcelHierarchyAdapter.read_row1_headers_and_types(tmp_path, "MassiveSheet")
+        elapsed = time.perf_counter() - t0
+
+        assert elapsed < 0.5  # Sub-second execution strictly on Row 1
+        res_dict = dict(res)
+        assert res_dict["Salary"] == "Currency"
+        assert res_dict["StartDate"] == "Date"
+        assert res_dict["Description"] == "Text"
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_custom_default_data_type_general_columns():
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "ConfigTest"
+
+        # General/unformatted column
+        ws.cell(row=1, column=1, value="UnspecifiedColumn")
+        # Explicit date column
+        c2 = ws.cell(row=1, column=2, value="CreatedDate")
+        c2.number_format = "yyyy-mm-dd"
+
+        wb.save(tmp_path)
+        wb.close()
+
+        # Test with default_data_type="Decimal"
+        res_decimal = dict(ExcelHierarchyAdapter.read_row1_headers_and_types(
+            tmp_path, "ConfigTest", default_data_type="Decimal"
+        ))
+        assert res_decimal["UnspecifiedColumn"] == "Decimal"
+        assert res_decimal["CreatedDate"] == "Date"  # Explicit type preserved
+
+        # Test with default_data_type="Integer"
+        res_int = dict(ExcelHierarchyAdapter.read_row1_headers_and_types(
+            tmp_path, "ConfigTest", default_data_type="Integer"
+        ))
+        assert res_int["UnspecifiedColumn"] == "Integer"
+        assert res_int["CreatedDate"] == "Date"  # Explicit type preserved
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+

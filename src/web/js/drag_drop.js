@@ -28,7 +28,8 @@ const DragDropHandler = {
         sidebarItemEl.setAttribute('draggable', 'true');
         sidebarItemEl.addEventListener('dragstart', (e) => {
             const headerLabel = sidebarItemEl.dataset.headerLabel;
-            this.activeDragPayload = { isNew: true, label: headerLabel };
+            const dataType = sidebarItemEl.dataset.dataType || 'Text';
+            this.activeDragPayload = { isNew: true, label: headerLabel, dataType: dataType };
             e.dataTransfer.setData('application/json', JSON.stringify(this.activeDragPayload));
             e.dataTransfer.setData('text/plain', headerLabel);
             e.dataTransfer.setData('source', 'sidebar_catalog');
@@ -38,6 +39,7 @@ const DragDropHandler = {
             this.handleDragEnd();
         });
     },
+
 
     handleDragStart(e) {
         const nodeContent = e.target.closest('.tree-node-content');
@@ -160,7 +162,8 @@ const DragDropHandler = {
             const draggedNodeWrapper = this.treeViewEl.querySelector(`.tree-node[data-id="${payload.id}"]`);
             if (targetId === payload.id || (draggedNodeWrapper && draggedNodeWrapper.contains(targetContent))) {
                 if (this.showToast) {
-                    this.showToast('Invalid Operation: Cannot move a node into itself or its own descendant.', 'warning');
+                    const msg = window.I18n ? I18n.t('toast_cycle_prohibited') : 'Invalid Operation: Cannot move a node into itself or its own descendant.';
+                    this.showToast(msg, 'warning');
                 }
                 this.handleDragEnd();
                 return;

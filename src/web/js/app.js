@@ -10,32 +10,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const App = {
     activeParentIdForModal: null,
+    activeNodeIdForEdit: null,
+    modalMode: 'create',
     currentFileName: null,
     currentSheetName: null,
     catalogSheetName: null,
     cachedAllHeaders: {},
+    cachedAllHeadersMeta: {},
     pendingAction: null,
     isDirty: false,
     currentTemplatePath: null,
     currentRawHeaders: [],
+    currentRawHeadersMeta: [],
     collapsedNodeIds: new Set(),
     currentRoots: [],
+    settings: { delimiter: '\\', default_data_type: 'Text' },
+    currentViewMode: 'tree',
 
     async init() {
         this.collapsedNodeIds = new Set();
         this.currentRoots = [];
+        this.settings = { delimiter: '\\', default_data_type: 'Text' };
         this.cachedAllHeaders = {};
+        this.cachedAllHeadersMeta = {};
+        this.currentRawHeadersMeta = [];
         this.isDirty = false;
         this.currentTemplatePath = null;
         this.pendingAction = null;
+        this.modalMode = 'create';
+        this.activeNodeIdForEdit = null;
+
+        const savedView = localStorage.getItem('je_workspace_view_mode');
+        this.currentViewMode = (savedView === 'matrix' || savedView === 'unique_levels') ? savedView : 'tree';
+
         this.bindDOM();
         this.bindEvents();
+        this.switchViewMode(this.currentViewMode);
+
+        if (window.I18n) {
+            I18n.init();
+            I18n.onLanguageChanged(() => {
+                this.updateTemplateBadge(this.currentTemplatePath);
+                this.updateUI(this.currentRoots);
+                this.filterAndRenderSidebar();
+                this.updateSheetSelectorsLabels();
+            });
+        }
+
         DragDropHandler.init(
             document.getElementById('treeView'),
             (payload, targetId, zone) => this.handleDropPayload(payload, targetId, zone),
             (msg, type) => this.showToast(msg, type)
         );
 
+        await this.loadInitialSettings();
         await this.refreshWorkspace();
     },
 
@@ -48,16 +76,46 @@ const App = {
         this.nodeModal = document.getElementById('nodeModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.inputNodeName = document.getElementById('inputNodeName');
+        this.groupNodeType = document.getElementById('groupNodeType');
+        this.selectNodeType = document.getElementById('selectNodeType');
+        this.folderTypeHint = document.getElementById('folderTypeHint');
+        this.modalBatchNotice = document.getElementById('modalBatchNotice');
+        this.modalBatchNoticeText = document.getElementById('modalBatchNoticeText');
+        this.btnModalSubmit = document.getElementById('btnModalSubmit');
 
-        // Toolbar Collapse / Expand buttons (Feature 011)
+        // Toolbar Collapse / Expand & Add Root buttons (Feature 011 & 025)
         this.btnExpandAll = document.getElementById('btnExpandAll');
         this.btnCollapseAll = document.getElementById('btnCollapseAll');
+        this.btnAddRootHeader = document.getElementById('btnAddRootHeader');
+
+        // View Mode Switcher, Excel Block View & Unique Levels View (Feature 027 & 028)
+        this.btnViewTree = document.getElementById('btnViewTree');
+        this.btnViewMatrix = document.getElementById('btnViewMatrix');
+        this.btnViewUniqueLevels = document.getElementById('btnViewUniqueLevels');
+        this.excelBlockViewEl = document.getElementById('excelBlockView');
+        this.uniqueLevelViewEl = document.getElementById('uniqueLevelView');
+
+        // Settings Button & Modal (Feature 026)
+        this.btnSettings = document.getElementById('btnSettings');
+        this.settingsModal = document.getElementById('settingsModal');
+        this.settingsModalClose = document.getElementById('settingsModalClose');
+        this.inputSettingDelimiter = document.getElementById('inputSettingDelimiter');
+        this.selectSettingDefaultType = document.getElementById('selectSettingDefaultType');
+        this.btnSettingsReset = document.getElementById('btnSettingsReset');
+        this.btnSettingsCancel = document.getElementById('btnSettingsCancel');
+        this.btnSettingsSave = document.getElementById('btnSettingsSave');
+
+        // Language switcher buttons (Feature 023)
+        this.langBtnUk = document.getElementById('langBtnUk');
+        this.langBtnEn = document.getElementById('langBtnEn');
 
         // Unified Sidebar & Tabs (Feature 013 & 015)
         this.unifiedSidebar = document.getElementById('unifiedSidebar');
         this.sidebarResizer = document.getElementById('sidebarResizer');
-        this.tabBtnCatalog = document.getElementById('tabBtnCatalog');
-        this.tabBtnPaths = document.getElementById('tabBtnPaths');
+        this.btnToggleSidebarCollapse = document.getElementById('btnToggleSidebarCollapse');
+        this.btnExpandSidebarStrip = document.getElementById('btnExpandSidebarStrip');
+        this.sidebarCollapsedStrip = document.getElementById('sidebarCollapsedStrip');
+        this.sidebarTabSelector = document.getElementById('sidebarTabSelector');
         this.tabContentCatalog = document.getElementById('tabContentCatalog');
         this.tabContentPaths = document.getElementById('tabContentPaths');
 
@@ -81,14 +139,15 @@ const App = {
 
     updateTemplateBadge(path) {
         this.currentTemplatePath = path || null;
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         if (this.templateStatusBadge) {
             if (this.currentTemplatePath) {
                 const base = this.currentTemplatePath.split(/[/\\]/).pop();
-                this.templateStatusBadge.textContent = `Template: ${base} (Synced)`;
-                this.templateStatusBadge.title = `Bound Template File: ${this.currentTemplatePath}`;
+                this.templateStatusBadge.textContent = `${t('template_prefix')}: ${base} (Synced)`;
+                this.templateStatusBadge.title = `${t('template_status_title')}: ${this.currentTemplatePath}`;
             } else {
-                this.templateStatusBadge.textContent = `Template: (None)`;
-                this.templateStatusBadge.title = `No template file bound yet. Export or Save to bind.`;
+                this.templateStatusBadge.textContent = `${t('template_prefix')}: ${t('template_none')}`;
+                this.templateStatusBadge.title = t('template_status_title');
             }
         }
     },
@@ -97,9 +156,26 @@ const App = {
         this.bindTabs();
         this.bindResizer();
 
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+
+        // Language Switcher (Feature 023)
+        if (this.langBtnUk) {
+            this.langBtnUk.addEventListener('click', () => {
+                if (window.I18n) I18n.setLanguage('uk');
+            });
+        }
+        if (this.langBtnEn) {
+            this.langBtnEn.addEventListener('click', () => {
+                if (window.I18n) I18n.setLanguage('en');
+            });
+        }
+
         const btnCreateRootEmpty = document.getElementById('btnCreateRootEmpty');
         if (btnCreateRootEmpty) {
-            btnCreateRootEmpty.addEventListener('click', () => this.openAddModal(null, "Create Root Node"));
+            btnCreateRootEmpty.addEventListener('click', () => this.openAddModal(null, t("modal_create_title")));
+        }
+        if (this.btnAddRootHeader) {
+            this.btnAddRootHeader.addEventListener('click', () => this.openAddModal(null, t("modal_create_title")));
         }
         document.getElementById('btnRefresh').addEventListener('click', () => this.refreshWorkspace());
 
@@ -109,6 +185,17 @@ const App = {
         }
         if (this.btnCollapseAll) {
             this.btnCollapseAll.addEventListener('click', () => this.collapseAll());
+        }
+
+        // Feature 027 & 028: View Mode Switcher (Tree vs Excel Block Matrix vs Unique Levels)
+        if (this.btnViewTree) {
+            this.btnViewTree.addEventListener('click', () => this.switchViewMode('tree'));
+        }
+        if (this.btnViewMatrix) {
+            this.btnViewMatrix.addEventListener('click', () => this.switchViewMode('matrix'));
+        }
+        if (this.btnViewUniqueLevels) {
+            this.btnViewUniqueLevels.addEventListener('click', () => this.switchViewMode('unique_levels'));
         }
 
         // Helper: Native OS Open File Dialog for Excel Import
@@ -129,13 +216,13 @@ const App = {
                 this.pendingAction = { type: 'import_file' };
                 if (this.currentTemplatePath) {
                     const base = this.currentTemplatePath.split(/[/\\]/).pop();
-                    this.unsavedModalMessage.innerHTML = `You have unsaved changes in your current session. Update template "<strong>${this.escapeHtml(base)}</strong>" before importing a new file?`;
-                    this.btnUnsavedSave.textContent = "Update Template & Import";
+                    this.unsavedModalMessage.innerHTML = t('unsaved_msg_import_update', { template: this.escapeHtml(base) });
+                    this.btnUnsavedSave.textContent = t("unsaved_btn_update_import");
                 } else {
-                    this.unsavedModalMessage.innerHTML = `You have unsaved changes in your current session. Save your changes to a template file before importing a new file?`;
-                    this.btnUnsavedSave.textContent = "Save Template & Import";
+                    this.unsavedModalMessage.innerHTML = t('unsaved_msg_import_save');
+                    this.btnUnsavedSave.textContent = t("unsaved_btn_save_import");
                 }
-                this.btnUnsavedDiscard.textContent = "Discard & Import";
+                this.btnUnsavedDiscard.textContent = t("unsaved_btn_discard_import");
                 this.unsavedModal.classList.remove('hidden');
             } else {
                 await this.promptOpenAndImportFile();
@@ -155,9 +242,9 @@ const App = {
                     if (res.success) {
                         this.isDirty = false;
                         this.updateTemplateBadge(res.template_path);
-                        this.showToast(`Exported clean template to '${res.template_path.split(/[/\\]/).pop()}'.`, "success");
+                        this.showToast(t('toast_template_exported', { template: res.template_path.split(/[/\\]/).pop() }), "success");
                     } else {
-                        this.showToast(res.error || "Failed to export template.", "error");
+                        this.showToast(res.error || t("toast_template_failed"), "error");
                     }
                 }
             } catch (err) {
@@ -174,13 +261,13 @@ const App = {
                 this.pendingAction = { type: 'switch_sheet', targetSheet: selectedSheet };
                 if (this.currentTemplatePath) {
                     const base = this.currentTemplatePath.split(/[/\\]/).pop();
-                    this.unsavedModalMessage.innerHTML = `You have unsaved changes on sheet "<strong>${this.escapeHtml(this.currentSheetName || 'Active Sheet')}</strong>". Update template "<strong>${this.escapeHtml(base)}</strong>" before switching to "<strong>${this.escapeHtml(selectedSheet)}</strong>"?`;
-                    this.btnUnsavedSave.textContent = "Update Template & Switch";
+                    this.unsavedModalMessage.innerHTML = t('unsaved_msg_switch_update', { sheet: this.escapeHtml(this.currentSheetName || 'Active Sheet'), template: this.escapeHtml(base), target: this.escapeHtml(selectedSheet) });
+                    this.btnUnsavedSave.textContent = t("unsaved_btn_update_switch");
                 } else {
-                    this.unsavedModalMessage.innerHTML = `You have unsaved changes on sheet "<strong>${this.escapeHtml(this.currentSheetName || 'Active Sheet')}</strong>". Save your changes to a template file before switching to "<strong>${this.escapeHtml(selectedSheet)}</strong>"?`;
-                    this.btnUnsavedSave.textContent = "Save Template & Switch";
+                    this.unsavedModalMessage.innerHTML = t('unsaved_msg_switch_save', { sheet: this.escapeHtml(this.currentSheetName || 'Active Sheet'), target: this.escapeHtml(selectedSheet) });
+                    this.btnUnsavedSave.textContent = t("unsaved_btn_save_switch");
                 }
-                this.btnUnsavedDiscard.textContent = "Discard & Switch";
+                this.btnUnsavedDiscard.textContent = t("unsaved_btn_discard_switch");
                 this.unsavedModal.classList.remove('hidden');
                 // Revert select display until decision
                 this.activeSheetSelector.value = this.currentSheetName;
@@ -218,6 +305,8 @@ const App = {
                 this.handleSwitchSheet(action.targetSheet);
             } else if (action.type === 'import_file') {
                 this.promptOpenAndImportFile();
+            } else if (action.type === 'refresh_file') {
+                this.performRefresh();
             }
         });
 
@@ -226,6 +315,7 @@ const App = {
             closeUnsavedModal();
             if (!action) return;
 
+            const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
             if (this.currentTemplatePath) {
                 // 1-Click Direct Sync to bound template
                 try {
@@ -233,15 +323,17 @@ const App = {
                     if (res.success) {
                         this.isDirty = false;
                         this.updateTemplateBadge(res.template_path);
-                        this.showToast(`Updated template '${res.template_path.split(/[/\\]/).pop()}'.`, "success");
+                        this.showToast(t('toast_template_updated', { template: res.template_path.split(/[/\\]/).pop() }), "success");
                         if (action.type === 'switch_sheet') {
                             this.activeSheetSelector.value = action.targetSheet;
                             this.handleSwitchSheet(action.targetSheet);
                         } else if (action.type === 'import_file') {
                             this.promptOpenAndImportFile();
+                        } else if (action.type === 'refresh_file') {
+                            this.performRefresh();
                         }
                     } else {
-                        this.showToast(res.error || "Failed to update template.", "error");
+                        this.showToast(res.error || t("toast_template_failed"), "error");
                     }
                 } catch (err) {
                     this.showToast("Error updating template: " + err, "error");
@@ -259,18 +351,20 @@ const App = {
                         if (res.success) {
                             this.isDirty = false;
                             this.updateTemplateBadge(res.template_path);
-                            this.showToast(`Saved template '${res.template_path.split(/[/\\]/).pop()}'.`, "success");
+                            this.showToast(t('toast_template_saved', { template: res.template_path.split(/[/\\]/).pop() }), "success");
                             if (action.type === 'switch_sheet') {
                                 this.activeSheetSelector.value = action.targetSheet;
                                 this.handleSwitchSheet(action.targetSheet);
                             } else if (action.type === 'import_file') {
                                 this.promptOpenAndImportFile();
+                            } else if (action.type === 'refresh_file') {
+                                this.performRefresh();
                             }
                         } else {
-                            this.showToast(res.error || "Failed to save template.", "error");
+                            this.showToast(res.error || t("toast_template_failed"), "error");
                         }
                     } else {
-                        this.showToast("Save cancelled. Remained on active workspace.", "info");
+                        this.showToast(t("toast_save_cancelled"), "info");
                     }
                 } catch (err) {
                     this.showToast("Error saving before action: " + err, "error");
@@ -283,7 +377,7 @@ const App = {
             this.filterAndRenderSidebar();
         });
 
-        // Delegate click events on tree view (Feature 011: Chevron toggle, Add Child, Delete)
+        // Delegate click events on tree view (Feature 011 & 019: Chevron toggle, Add Child, Rename, Delete)
         this.treeViewEl.addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('.node-toggle');
             if (toggleBtn) {
@@ -303,10 +397,28 @@ const App = {
                 return;
             }
 
+            const renameBtn = e.target.closest('.action-btn.rename-node');
+            if (renameBtn) {
+                const nodeId = renameBtn.dataset.id;
+                const nodeCard = renameBtn.closest('.tree-node');
+                const titleEl = nodeCard ? nodeCard.querySelector('.node-title') : null;
+                const currentName = titleEl ? titleEl.textContent.trim() : '';
+                const currentType = nodeCard ? (nodeCard.dataset.dataType || 'Text') : 'Text';
+                const isFolder = nodeCard ? (nodeCard.dataset.isFolder === 'true') : false;
+                this.openEditModal(nodeId, currentName, currentType, isFolder);
+                return;
+            }
+
+            const addRootCanvasBtn = e.target.closest('#btnAddRootCanvas, .btn-add-root-canvas');
+            if (addRootCanvasBtn) {
+                this.openAddModal(null, t("modal_create_title"));
+                return;
+            }
+
             const addBtn = e.target.closest('.action-btn.add-child');
             if (addBtn) {
                 const parentId = addBtn.dataset.id;
-                this.openAddModal(parentId, "Add Child Node");
+                this.openAddModal(parentId, t("tooltip_add_child"));
                 return;
             }
 
@@ -318,46 +430,124 @@ const App = {
             }
         });
 
+        // Feature 019 & 020: Double-click on node label or badge to edit in Tree View
+        this.treeViewEl.addEventListener('dblclick', (e) => {
+            const targetEl = e.target.closest('.node-title, .node-type-badge');
+            if (targetEl) {
+                const nodeCard = targetEl.closest('.tree-node');
+                const nodeId = nodeCard ? nodeCard.dataset.id : null;
+                const titleEl = nodeCard ? nodeCard.querySelector('.node-title') : null;
+                const currentName = titleEl ? titleEl.textContent.trim() : '';
+                const currentType = nodeCard ? (nodeCard.dataset.dataType || 'Text') : 'Text';
+                const isFolder = nodeCard ? (nodeCard.dataset.isFolder === 'true') : false;
+                if (nodeId) {
+                    this.openEditModal(nodeId, currentName, currentType, isFolder);
+                }
+            }
+        });
+
+        // Feature 028: Double-click to edit in Excel Blocks View
+        if (this.excelBlockViewEl) {
+            this.excelBlockViewEl.addEventListener('dblclick', (e) => {
+                const cell = e.target.closest('.matrix-cell');
+                if (cell && cell.dataset.nodeId) {
+                    const nodeId = cell.dataset.nodeId;
+                    const currentName = cell.dataset.nodeName || '';
+                    const currentType = cell.dataset.dataType || 'Text';
+                    const isFolder = cell.dataset.isFolder === 'true';
+                    this.openEditModal(nodeId, currentName, currentType, isFolder);
+                }
+            });
+        }
+
+        // Feature 028: Double-click to edit in Unique Levels View with batch support
+        if (this.uniqueLevelViewEl) {
+            this.uniqueLevelViewEl.addEventListener('dblclick', (e) => {
+                const chip = e.target.closest('.level-header-chip');
+                if (chip && chip.dataset.nodeId) {
+                    const nodeId = chip.dataset.nodeId;
+                    const currentName = chip.dataset.nodeName || '';
+                    const currentType = chip.dataset.dataType || 'Text';
+                    const isFolder = chip.dataset.isFolder === 'true';
+                    const rawIds = chip.dataset.nodeIds || nodeId;
+                    const nodeIds = rawIds.split(',').map(s => s.trim()).filter(Boolean);
+                    const count = parseInt(chip.dataset.count, 10) || nodeIds.length || 1;
+                    const batchMeta = { count, nodeIds };
+                    this.openEditModal(nodeId, currentName, currentType, isFolder, batchMeta);
+                }
+            });
+        }
+
+
         // Modal event handlers
         document.getElementById('modalClose').addEventListener('click', () => this.closeModal());
         document.getElementById('btnModalCancel').addEventListener('click', () => this.closeModal());
-        document.getElementById('btnModalSubmit').addEventListener('click', () => this.submitAddModal());
+        document.getElementById('btnModalSubmit').addEventListener('click', () => this.submitModal());
         this.inputNodeName.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.submitAddModal();
+            if (e.key === 'Enter') this.submitModal();
+            if (e.key === 'Escape') this.closeModal();
         });
+
+        // Settings Modal event handlers (Feature 026)
+        if (this.btnSettings) {
+            this.btnSettings.addEventListener('click', () => this.openSettingsModal());
+        }
+        if (this.settingsModalClose) {
+            this.settingsModalClose.addEventListener('click', () => this.closeSettingsModal());
+        }
+        if (this.btnSettingsCancel) {
+            this.btnSettingsCancel.addEventListener('click', () => this.closeSettingsModal());
+        }
+        if (this.btnSettingsReset) {
+            this.btnSettingsReset.addEventListener('click', () => this.resetSettings());
+        }
+        if (this.btnSettingsSave) {
+            this.btnSettingsSave.addEventListener('click', () => this.saveSettings());
+        }
+        if (this.inputSettingDelimiter) {
+            this.inputSettingDelimiter.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') this.saveSettings();
+                if (e.key === 'Escape') this.closeSettingsModal();
+            });
+        }
     },
 
-    // Feature 013: Unified Tab Switching Controller
+    // Feature 013 & Feature 027: Unified Sidebar Tab Selector Controller
     bindTabs() {
-        if (this.tabBtnCatalog && this.tabBtnPaths) {
-            this.tabBtnCatalog.addEventListener('click', () => this.switchTab('catalog'));
-            this.tabBtnPaths.addEventListener('click', () => this.switchTab('paths'));
+        if (this.sidebarTabSelector) {
+            this.sidebarTabSelector.addEventListener('change', () => {
+                this.switchTab(this.sidebarTabSelector.value);
+            });
         }
     },
 
     switchTab(tabName) {
-        if (!this.tabBtnCatalog || !this.tabBtnPaths || !this.tabContentCatalog || !this.tabContentPaths) return;
+        if (!this.tabContentCatalog || !this.tabContentPaths) return;
+        if (this.sidebarTabSelector && this.sidebarTabSelector.value !== tabName) {
+            this.sidebarTabSelector.value = tabName;
+        }
 
         if (tabName === 'catalog') {
-            this.tabBtnCatalog.classList.add('active');
-            this.tabBtnPaths.classList.remove('active');
             this.tabContentCatalog.classList.remove('hidden');
             this.tabContentCatalog.classList.add('active');
             this.tabContentPaths.classList.add('hidden');
             this.tabContentPaths.classList.remove('active');
+            if (this.headerCountBadge) this.headerCountBadge.classList.remove('hidden');
+            if (this.pathCountBadge) this.pathCountBadge.classList.add('hidden');
         } else {
-            this.tabBtnPaths.classList.add('active');
-            this.tabBtnCatalog.classList.remove('active');
             this.tabContentPaths.classList.remove('hidden');
             this.tabContentPaths.classList.add('active');
             this.tabContentCatalog.classList.add('hidden');
             this.tabContentCatalog.classList.remove('active');
+            if (this.pathCountBadge) this.pathCountBadge.classList.remove('hidden');
+            if (this.headerCountBadge) this.headerCountBadge.classList.add('hidden');
         }
     },
 
     // Feature 013: Draggable Left-Edge Sidebar Resizing Controller
+    // Feature 013 & Feature 027: Draggable Left-Edge Resizer & Collapsible Sidebar Controller
     bindResizer() {
-        if (!this.sidebarResizer || !this.unifiedSidebar) return;
+        if (!this.unifiedSidebar) return;
 
         // Restore persisted width from localStorage
         const savedWidth = localStorage.getItem('app_sidebar_width');
@@ -367,6 +557,34 @@ const App = {
                 this.setSidebarWidth(parsed);
             }
         }
+
+        // Restore persisted collapse state from localStorage
+        const savedCollapsed = localStorage.getItem('je_sidebar_collapsed');
+        if (savedCollapsed === 'true') {
+            this.toggleSidebarCollapse(true);
+        }
+
+        if (this.btnToggleSidebarCollapse) {
+            this.btnToggleSidebarCollapse.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleSidebarCollapse(true);
+            });
+        }
+
+        if (this.btnExpandSidebarStrip) {
+            this.btnExpandSidebarStrip.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleSidebarCollapse(false);
+            });
+        }
+
+        if (this.sidebarCollapsedStrip) {
+            this.sidebarCollapsedStrip.addEventListener('click', () => {
+                this.toggleSidebarCollapse(false);
+            });
+        }
+
+        if (!this.sidebarResizer) return;
 
         let isDragging = false;
 
@@ -398,6 +616,7 @@ const App = {
 
         this.sidebarResizer.addEventListener('pointerdown', (e) => {
             if (e.button !== 0) return;
+            if (this.unifiedSidebar.classList.contains('sidebar-collapsed')) return;
             isDragging = true;
             document.body.classList.add('is-resizing');
             this.sidebarResizer.classList.add('active');
@@ -408,10 +627,26 @@ const App = {
         });
 
         this.sidebarResizer.addEventListener('dblclick', () => {
+            if (this.unifiedSidebar.classList.contains('sidebar-collapsed')) return;
+            const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
             this.setSidebarWidth(340);
             localStorage.setItem('app_sidebar_width', '340');
-            this.showToast("Sidebar width reset to default (340px).", "success");
+            this.showToast(t("sidebar_width_reset_toast"), "success");
         });
+    },
+
+    toggleSidebarCollapse(forceState = null) {
+        if (!this.unifiedSidebar) return;
+        const isCurrentlyCollapsed = this.unifiedSidebar.classList.contains('sidebar-collapsed');
+        const shouldCollapse = (forceState !== null) ? forceState : !isCurrentlyCollapsed;
+
+        if (shouldCollapse) {
+            this.unifiedSidebar.classList.add('sidebar-collapsed');
+            localStorage.setItem('je_sidebar_collapsed', 'true');
+        } else {
+            this.unifiedSidebar.classList.remove('sidebar-collapsed');
+            localStorage.setItem('je_sidebar_collapsed', 'false');
+        }
     },
 
     setSidebarWidth(width) {
@@ -421,19 +656,134 @@ const App = {
         }
     },
 
+    updateSheetSelectorsLabels() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (this.catalogSheetSelector) {
+            const allOpt = this.catalogSheetSelector.querySelector('option[value="__ALL__"]');
+            if (allOpt) allOpt.textContent = t('catalog_all_sheets');
+            const emptyOpt = this.catalogSheetSelector.querySelector('option[value=""]');
+            if (emptyOpt) emptyOpt.textContent = t('catalog_no_file');
+        }
+        if (this.activeSheetSelector) {
+            const emptyOpt = this.activeSheetSelector.querySelector('option[value=""]');
+            if (emptyOpt) emptyOpt.textContent = t('workspace_no_sheet');
+        }
+    },
+
     async refreshWorkspace() {
-        if (typeof eel === 'undefined' || !eel.get_workspace_tree) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (!this.currentFileName) {
+            this.showToast(t("toast_refresh_no_session"), "warning");
+            return;
+        }
+
+        if (this.isDirty) {
+            this.pendingAction = { type: 'refresh_file' };
+            if (this.currentTemplatePath) {
+                const base = this.currentTemplatePath.split(/[/\\]/).pop();
+                this.unsavedModalMessage.innerHTML = t('unsaved_msg_refresh_update', { template: this.escapeHtml(base), file: this.escapeHtml(this.currentFileName) });
+                this.btnUnsavedSave.textContent = t("unsaved_btn_update_refresh");
+            } else {
+                this.unsavedModalMessage.innerHTML = t('unsaved_msg_refresh_save', { file: this.escapeHtml(this.currentFileName) });
+                this.btnUnsavedSave.textContent = t("unsaved_btn_save_refresh");
+            }
+            this.btnUnsavedDiscard.textContent = t("unsaved_btn_discard_refresh");
+            this.unsavedModal.classList.remove('hidden');
+        } else {
+            await this.performRefresh();
+        }
+    },
+
+    async performRefresh() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (typeof eel === 'undefined' || !eel.refresh_excel_session) {
             console.warn("Eel backend not connected.");
             return;
         }
 
         try {
-            const res = await eel.get_workspace_tree()();
+            const res = await eel.refresh_excel_session()();
             if (res && res.success) {
-                this.updateUI(res.roots);
+                this.isDirty = false;
+                this.cachedAllHeaders = res.all_headers || {};
+                this.cachedAllHeadersMeta = res.all_headers_meta || {};
+
+                // Update Active Sheet Selector
+                this.activeSheetSelector.innerHTML = '';
+                res.sheets.forEach(sheetName => {
+                    const option = document.createElement('option');
+                    option.value = sheetName;
+                    option.textContent = sheetName;
+                    if (sheetName === res.active_sheet) option.selected = true;
+                    this.activeSheetSelector.appendChild(option);
+                });
+
+                // Update Catalog Header Source Selector
+                this.catalogSheetSelector.innerHTML = '';
+                const allOpt = document.createElement('option');
+                allOpt.value = '__ALL__';
+                allOpt.textContent = t('catalog_all_sheets');
+                this.catalogSheetSelector.appendChild(allOpt);
+
+                res.sheets.forEach(sheetName => {
+                    const option = document.createElement('option');
+                    option.value = sheetName;
+                    option.textContent = sheetName;
+                    if (sheetName === res.active_sheet) option.selected = true;
+                    this.catalogSheetSelector.appendChild(option);
+                });
+
+                this.currentFileName = res.file_path.split(/[/\\]/).pop();
+                this.currentSheetName = res.active_sheet;
+                this.catalogSheetName = res.active_sheet;
+                this.currentRawHeaders = res.headers || [];
+                this.currentRawHeadersMeta = res.headers_meta || [];
+
+                this.updateTemplateBadge(res.template_path);
+                this.catalogSheetSelector.disabled = false;
+                this.sidebarSearch.disabled = false;
+                this.sidebarSearch.value = '';
+                this.collapsedNodeIds.clear();
+                this.filterAndRenderSidebar();
+                if (res.roots) {
+                    this.updateUI(res.roots);
+                }
+                this.showToast(t('toast_refreshed_session', { file: this.currentFileName }), "success");
+            } else {
+                this.showToast(res.error || t("toast_refresh_failed"), "error");
             }
         } catch (err) {
-            console.error("Error fetching workspace tree:", err);
+            this.showToast("RPC Error refreshing session: " + err, "error");
+        }
+    },
+
+    switchViewMode(mode) {
+        if (mode !== 'tree' && mode !== 'matrix' && mode !== 'unique_levels') return;
+        this.currentViewMode = mode;
+        try {
+            localStorage.setItem('je_workspace_view_mode', mode);
+        } catch (e) {
+            console.error('Failed to save view mode preference:', e);
+        }
+
+        if (this.btnViewTree) this.btnViewTree.classList.toggle('active', mode === 'tree');
+        if (this.btnViewMatrix) this.btnViewMatrix.classList.toggle('active', mode === 'matrix');
+        if (this.btnViewUniqueLevels) this.btnViewUniqueLevels.classList.toggle('active', mode === 'unique_levels');
+
+        if (this.treeViewEl) this.treeViewEl.classList.toggle('hidden', mode !== 'tree');
+
+        if (this.excelBlockViewEl) {
+            this.excelBlockViewEl.classList.toggle('hidden', mode !== 'matrix');
+            if (mode === 'matrix' && window.ExcelBlockRenderer) {
+                ExcelBlockRenderer.renderMatrix(this.currentRoots, this.excelBlockViewEl);
+            }
+        }
+
+        if (this.uniqueLevelViewEl) {
+            this.uniqueLevelViewEl.classList.toggle('hidden', mode !== 'unique_levels');
+            if (mode === 'unique_levels' && window.UniqueLevelRenderer) {
+                UniqueLevelRenderer.renderUniqueLevels(this.currentRoots, this.uniqueLevelViewEl);
+            }
         }
     },
 
@@ -441,7 +791,14 @@ const App = {
         this.currentRoots = roots || [];
         TreeRenderer.renderTree(roots, this.treeViewEl, this.collapsedNodeIds);
         TreeRenderer.renderPaths(roots, this.pathListEl);
+        if (window.ExcelBlockRenderer && this.excelBlockViewEl) {
+            ExcelBlockRenderer.renderMatrix(roots, this.excelBlockViewEl);
+        }
+        if (window.UniqueLevelRenderer && this.uniqueLevelViewEl) {
+            UniqueLevelRenderer.renderUniqueLevels(roots, this.uniqueLevelViewEl);
+        }
 
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         let totalNodes = 0;
         function countNodes(node) {
             totalNodes++;
@@ -449,7 +806,7 @@ const App = {
         }
         if (roots) roots.forEach(countNodes);
 
-        this.nodeCountBadge.textContent = `${totalNodes} Nodes`;
+        this.nodeCountBadge.textContent = t('node_count', { count: totalNodes });
     },
 
     // Feature 011: Expand All and Collapse All Global Controls
@@ -474,11 +831,13 @@ const App = {
 
     // Feature 002, 006 & 015: Excel File Import & Dual-Selector Sheet Management
     async handleImportExcelFile(filePath) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         try {
             const res = await eel.import_excel_file(filePath)();
             if (res.success) {
                 this.isDirty = false;
                 this.cachedAllHeaders = res.all_headers || {};
+                this.cachedAllHeadersMeta = res.all_headers_meta || {};
 
                 // Populate Active Workspace Sheet Selector
                 this.activeSheetSelector.innerHTML = '';
@@ -494,7 +853,7 @@ const App = {
                 this.catalogSheetSelector.innerHTML = '';
                 const allOpt = document.createElement('option');
                 allOpt.value = '__ALL__';
-                allOpt.textContent = 'All Sheets (Combined)';
+                allOpt.textContent = t('catalog_all_sheets');
                 this.catalogSheetSelector.appendChild(allOpt);
 
                 res.sheets.forEach(sheetName => {
@@ -509,6 +868,7 @@ const App = {
                 this.currentSheetName = res.active_sheet;
                 this.catalogSheetName = res.active_sheet;
                 this.currentRawHeaders = res.headers || [];
+                this.currentRawHeadersMeta = res.headers_meta || [];
 
                 this.updateTemplateBadge(res.template_path);
                 this.catalogSheetSelector.disabled = false;
@@ -519,9 +879,9 @@ const App = {
                 if (res.roots) {
                     this.updateUI(res.roots);
                 }
-                this.showToast(`Imported Excel session: ${res.sheets.length} sheets found.`, "success");
+                this.showToast(t('toast_imported_session', { count: res.sheets.length }), "success");
             } else {
-                this.showToast(res.error || "Failed to import Excel session.", "error");
+                this.showToast(res.error || t("toast_import_failed"), "error");
             }
         } catch (err) {
             this.showToast("RPC Error importing file: " + err, "error");
@@ -529,6 +889,7 @@ const App = {
     },
 
     async handleSwitchSheet(sheetName) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         try {
             const res = await eel.switch_active_sheet(sheetName)();
             if (res.success) {
@@ -543,9 +904,9 @@ const App = {
                 if (res.roots) {
                     this.updateUI(res.roots);
                 }
-                this.showToast(`Switched active workspace sheet to '${sheetName}'.`, "success");
+                this.showToast(t('toast_switched_sheet', { sheet: sheetName }), "success");
             } else {
-                this.showToast(res.error || "Failed to switch sheet.", "error");
+                this.showToast(res.error || t("toast_switch_failed"), "error");
             }
         } catch (err) {
             this.showToast("RPC Error switching sheet: " + err, "error");
@@ -553,25 +914,36 @@ const App = {
     },
 
     filterAndRenderSidebar() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         let headerItems = [];
         const sourceSheet = this.catalogSheetName || this.currentSheetName;
 
         if (sourceSheet === '__ALL__') {
-            // Aggregate headers from all cached sheets with sheet tags
-            Object.entries(this.cachedAllHeaders).forEach(([sName, headers]) => {
-                headers.forEach(h => {
-                    headerItems.push({ label: h, sheet: sName });
+            // Aggregate headers from all cached sheets with sheet tags and data types
+            if (this.cachedAllHeadersMeta && Object.keys(this.cachedAllHeadersMeta).length > 0) {
+                Object.entries(this.cachedAllHeadersMeta).forEach(([sName, items]) => {
+                    items.forEach(it => {
+                        headerItems.push({ label: it.name, type: it.type || 'Text', sheet: sName });
+                    });
                 });
-            });
+            } else {
+                Object.entries(this.cachedAllHeaders).forEach(([sName, headers]) => {
+                    headers.forEach(h => {
+                        headerItems.push({ label: h, type: 'Text', sheet: sName });
+                    });
+                });
+            }
+        } else if (this.cachedAllHeadersMeta && this.cachedAllHeadersMeta[sourceSheet]) {
+            headerItems = this.cachedAllHeadersMeta[sourceSheet].map(it => ({ label: it.name, type: it.type || 'Text', sheet: null }));
         } else if (this.cachedAllHeaders && this.cachedAllHeaders[sourceSheet]) {
-            headerItems = this.cachedAllHeaders[sourceSheet].map(h => ({ label: h, sheet: null }));
+            headerItems = this.cachedAllHeaders[sourceSheet].map(h => ({ label: h, type: 'Text', sheet: null }));
         } else {
-            headerItems = this.currentRawHeaders.map(h => ({ label: h, sheet: null }));
+            headerItems = this.currentRawHeaders.map(h => ({ label: h, type: 'Text', sheet: null }));
         }
 
         const query = this.sidebarSearch.value.trim().toLowerCase();
         const filtered = query
-            ? headerItems.filter(item => item.label.toLowerCase().includes(query) || (item.sheet && item.sheet.toLowerCase().includes(query)))
+            ? headerItems.filter(item => item.label.toLowerCase().includes(query) || (item.sheet && item.sheet.toLowerCase().includes(query)) || (item.type && item.type.toLowerCase().includes(query)))
             : headerItems;
 
         this.sidebarHeaderList.innerHTML = '';
@@ -580,7 +952,7 @@ const App = {
             this.sidebarEmptyState.classList.remove('hidden');
             this.sidebarEmptyState.style.display = '';
             this.sidebarHeaderList.classList.add('hidden');
-            this.headerCountBadge.textContent = "0 Headers";
+            this.headerCountBadge.textContent = t('header_count', { count: 0 });
             return;
         }
 
@@ -592,13 +964,18 @@ const App = {
             const itemEl = document.createElement('div');
             itemEl.className = 'sidebar-header-item';
             itemEl.dataset.headerLabel = item.label;
-
+            itemEl.dataset.dataType = item.type || 'Text';
+            const itemTypeLabel = window.I18n ? I18n.getTypeLabel(item.type) : (item.type || 'Text');
             const sheetTagHtml = item.sheet ? `<span class="header-sheet-tag">${this.escapeHtml(item.sheet)}</span>` : '';
+            const typeTagHtml = `<span class="header-type-tag" title="${t('tooltip_data_type_badge')}">${this.escapeHtml(itemTypeLabel)}</span>`;
 
             itemEl.innerHTML = `
-                <span class="header-title">${this.escapeHtml(item.label)}</span>
-                ${sheetTagHtml}
-                <span class="drag-badge" title="Drag to tree constructor">
+                <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1;">
+                    <span class="header-title">${this.escapeHtml(item.label)}</span>
+                    ${typeTagHtml}
+                    ${sheetTagHtml}
+                </div>
+                <span class="drag-badge" title="${t('tooltip_drag_handle')}">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
                         <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
@@ -610,7 +987,7 @@ const App = {
             this.sidebarHeaderList.appendChild(itemEl);
         });
 
-        this.headerCountBadge.textContent = `${filtered.length} Headers`;
+        this.headerCountBadge.textContent = t('header_count', { count: filtered.length });
     },
 
     async handleDropPayload(payload, targetId, zone) {
@@ -622,21 +999,22 @@ const App = {
         }
 
         if (payload.isNew) {
-            await this.handleAddHeaderNode(payload.label, targetId, zone);
+            await this.handleAddHeaderNode(payload.label, targetId, zone, payload.dataType || 'Text');
         } else if (payload.id) {
             if (!targetId || !zone) return;
             await this.handleMoveNode(payload.id, targetId, zone);
         }
     },
 
-    // Feature 002: Add Header from Non-Destructive Drag and Drop with zone positioning
-    async handleAddHeaderNode(headerLabel, targetId, zone) {
+    // Feature 002 & 020: Add Header from Non-Destructive Drag and Drop with zone positioning and data type inheritance
+    async handleAddHeaderNode(headerLabel, targetId, zone, dataType = "Text") {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         try {
-            const res = await eel.add_node(null, headerLabel, false, targetId, zone)();
+            const res = await eel.add_node(null, headerLabel, false, targetId, zone, dataType)();
             if (res.success) {
                 this.isDirty = true;
                 this.updateUI(res.roots);
-                this.showToast(`Added header node '${headerLabel}' into tree structure.`, "success");
+                this.showToast(t('toast_header_added', { name: headerLabel, type: dataType }), "success");
             } else {
                 this.showToast(res.error || "Failed to add header node.", "error");
             }
@@ -645,81 +1023,145 @@ const App = {
         }
     },
 
-    // Feature 002 & 014: Reconstructed Tree Row 1 Horizontal Clean Template Export
-    async handleExportReorganizedRow1(outputPath) {
-        if (!this.currentSheetName) {
-            this.showToast("Please import an Excel file session first.", "warning");
-            return false;
-        }
-
-        // Collect leaf path strings from rendered path cards
-        const pathElements = this.pathListEl.querySelectorAll('.path-card');
-        const leafPaths = Array.from(pathElements).map(el => el.textContent.trim()).filter(Boolean);
-
-        if (leafPaths.length === 0) {
-            this.showToast("Tree is empty. Add nodes before exporting.", "warning");
-            return false;
-        }
-
-        try {
-            const res = await eel.export_reorganized_row1(this.currentSheetName, leafPaths, outputPath)();
-            if (res.success) {
-                this.isDirty = false;
-                this.showToast(`Exported ${res.column_count} leaf path columns to '${this.currentSheetName}' in Row 1.`, "success");
-                return true;
-            } else {
-                this.showToast(res.error || "Failed to export Row 1 paths.", "error");
-                return false;
-            }
-        } catch (err) {
-            this.showToast("RPC Error exporting Row 1: " + err, "error");
-            return false;
-        }
-    },
-
     openAddModal(parentId, title) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        this.modalMode = 'create';
         this.activeParentIdForModal = parentId;
-        this.modalTitle.textContent = title;
+        this.activeNodeIdForEdit = null;
+        this.modalTitle.textContent = title || t("modal_create_title");
+        if (this.btnModalSubmit) this.btnModalSubmit.textContent = t("modal_btn_create");
         this.inputNodeName.value = '';
+        if (this.selectNodeType) {
+            this.selectNodeType.value = (this.settings && this.settings.default_data_type) ? this.settings.default_data_type : 'Text';
+            this.selectNodeType.disabled = false;
+            this.selectNodeType.classList.remove('hidden');
+        }
+        if (this.folderTypeHint) this.folderTypeHint.classList.add('hidden');
         this.nodeModal.classList.remove('hidden');
         this.inputNodeName.focus();
     },
 
-    closeModal() {
-        this.nodeModal.classList.add('hidden');
+    openEditModal(nodeId, currentName, currentType = 'Text', isFolder = false, batchMeta = null) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        this.modalMode = 'edit';
+        this.activeNodeIdForEdit = nodeId;
         this.activeParentIdForModal = null;
+        this.activeBatchMeta = batchMeta;
+
+        this.modalTitle.textContent = isFolder ? t("modal_edit_folder_title") : t("modal_edit_element_title");
+        if (this.btnModalSubmit) this.btnModalSubmit.textContent = t("modal_btn_save");
+        this.inputNodeName.value = currentName || '';
+
+        if (this.modalBatchNotice) {
+            if (batchMeta && batchMeta.count > 1) {
+                this.modalBatchNotice.classList.remove('hidden');
+                if (this.modalBatchNoticeText) {
+                    this.modalBatchNoticeText.textContent = t("modal_batch_edit_notice", { count: batchMeta.count, name: currentName });
+                }
+            } else {
+                this.modalBatchNotice.classList.add('hidden');
+            }
+        }
+
+        if (this.selectNodeType) {
+            this.selectNodeType.value = currentType || 'Text';
+            if (isFolder) {
+                this.selectNodeType.disabled = true;
+                this.selectNodeType.classList.add('hidden');
+                if (this.folderTypeHint) this.folderTypeHint.classList.remove('hidden');
+            } else {
+                this.selectNodeType.disabled = false;
+                this.selectNodeType.classList.remove('hidden');
+                if (this.folderTypeHint) this.folderTypeHint.classList.add('hidden');
+            }
+        }
+
+        this.nodeModal.classList.remove('hidden');
+        this.inputNodeName.focus();
+        this.inputNodeName.select();
     },
 
-    async submitAddModal() {
+    closeModal() {
+        this.nodeModal.classList.add('hidden');
+        if (this.modalBatchNotice) {
+            this.modalBatchNotice.classList.add('hidden');
+        }
+        this.activeParentIdForModal = null;
+        this.activeNodeIdForEdit = null;
+        this.activeBatchMeta = null;
+        this.modalMode = 'create';
+    },
+
+    async submitModal() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         const name = this.inputNodeName.value.trim();
         if (!name) {
-            this.showToast("Node name cannot be empty.", "warning");
+            this.showToast(t("toast_name_empty"), "warning");
             return;
         }
 
-        try {
-            const res = await eel.add_node(this.activeParentIdForModal, name)();
-            if (res.success) {
-                this.isDirty = true;
-                this.updateUI(res.roots);
-                this.closeModal();
-                this.showToast(`Node '${name}' created successfully.`, "success");
+        const selectedType = (this.selectNodeType && !this.selectNodeType.disabled) ? this.selectNodeType.value : 'Text';
+
+        if (this.modalMode === 'edit') {
+            if (this.activeBatchMeta && this.activeBatchMeta.nodeIds && this.activeBatchMeta.nodeIds.length > 1) {
+                try {
+                    let lastRes = null;
+                    for (const nId of this.activeBatchMeta.nodeIds) {
+                        lastRes = await eel.update_node(nId, name, selectedType)();
+                    }
+                    if (lastRes && lastRes.success) {
+                        this.isDirty = true;
+                        this.updateUI(lastRes.roots);
+                        const count = this.activeBatchMeta.nodeIds.length;
+                        this.closeModal();
+                        this.showToast(t('toast_batch_nodes_updated', { count: count, name: name }), "success");
+                    } else {
+                        this.showToast((lastRes && lastRes.error) || "Failed to update nodes.", "error");
+                    }
+                } catch (err) {
+                    this.showToast("RPC Error updating nodes: " + err, "error");
+                }
             } else {
-                this.showToast(res.error || "Failed to add node.", "error");
+                try {
+                    const res = await eel.update_node(this.activeNodeIdForEdit, name, selectedType)();
+                    if (res.success) {
+                        this.isDirty = true;
+                        this.updateUI(res.roots);
+                        this.closeModal();
+                        this.showToast(t('toast_node_updated', { name: name }), "success");
+                    } else {
+                        this.showToast(res.error || "Failed to update node.", "error");
+                    }
+                } catch (err) {
+                    this.showToast("RPC Error updating node: " + err, "error");
+                }
             }
-        } catch (err) {
-            this.showToast("RPC Error adding node: " + err, "error");
+        } else {
+            try {
+                const res = await eel.add_node(this.activeParentIdForModal, name, true, null, null, selectedType)();
+                if (res.success) {
+                    this.isDirty = true;
+                    this.updateUI(res.roots);
+                    this.closeModal();
+                    this.showToast(t('toast_node_created', { name: name }), "success");
+                } else {
+                    this.showToast(res.error || "Failed to add node.", "error");
+                }
+            } catch (err) {
+                this.showToast("RPC Error adding node: " + err, "error");
+            }
         }
     },
 
     async handleMoveNode(nodeId, targetId, zone) {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
         try {
             const res = await eel.move_node(nodeId, targetId, zone)();
             if (res.success) {
                 this.isDirty = true;
                 this.updateUI(res.roots);
             } else {
-                this.showToast(res.rejection_reason || "Move rejected by backend.", "warning");
+                this.showToast(res.rejection_reason || t("toast_move_rejected"), "warning");
             }
         } catch (err) {
             this.showToast("RPC Error moving node: " + err, "error");
@@ -727,14 +1169,15 @@ const App = {
     },
 
     async handleDeleteNode(nodeId) {
-        if (!confirm("Are you sure you want to delete this node and all its contents?")) return;
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (!confirm(t("confirm_delete"))) return;
 
         try {
             const res = await eel.delete_node(nodeId)();
             if (res.success) {
                 this.isDirty = true;
                 this.updateUI(res.roots);
-                this.showToast("Node deleted.", "success");
+                this.showToast(t("toast_node_deleted"), "success");
             } else {
                 this.showToast(res.error || "Failed to delete node.", "error");
             }
@@ -760,5 +1203,123 @@ const App = {
         setTimeout(() => {
             toast.remove();
         }, 3500);
+    },
+
+    // Feature 026: Settings Lifecycle & Modal Management
+    async loadInitialSettings() {
+        try {
+            const cached = localStorage.getItem('je_settings_config');
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    if (parsed && typeof parsed === 'object') {
+                        this.settings = {
+                            delimiter: parsed.delimiter || '\\',
+                            default_data_type: parsed.default_data_type || 'Text'
+                        };
+                        // Synchronize with Python backend
+                        if (typeof eel !== 'undefined' && eel.update_settings) {
+                            await eel.update_settings(this.settings.delimiter, this.settings.default_data_type)();
+                        }
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Failed to parse cached settings:', e);
+                }
+            }
+
+            if (typeof eel !== 'undefined' && eel.get_settings) {
+                const res = await eel.get_settings()();
+                if (res && res.success && res.settings) {
+                    this.settings = {
+                        delimiter: res.settings.delimiter || '\\',
+                        default_data_type: res.settings.default_data_type || 'Text'
+                    };
+                    localStorage.setItem('je_settings_config', JSON.stringify(this.settings));
+                }
+            }
+        } catch (err) {
+            console.error('Error loading initial settings:', err);
+        }
+    },
+
+    openSettingsModal() {
+        if (!this.settingsModal) return;
+        if (this.inputSettingDelimiter) {
+            this.inputSettingDelimiter.value = (this.settings && this.settings.delimiter) ? this.settings.delimiter : '\\';
+        }
+        if (this.selectSettingDefaultType) {
+            this.selectSettingDefaultType.value = (this.settings && this.settings.default_data_type) ? this.settings.default_data_type : 'Text';
+        }
+        this.settingsModal.classList.remove('hidden');
+        if (this.inputSettingDelimiter) {
+            this.inputSettingDelimiter.focus();
+            this.inputSettingDelimiter.select();
+        }
+    },
+
+    closeSettingsModal() {
+        if (this.settingsModal) {
+            this.settingsModal.classList.add('hidden');
+        }
+    },
+
+    async saveSettings() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        if (!this.inputSettingDelimiter || !this.selectSettingDefaultType) return;
+
+        const delim = this.inputSettingDelimiter.value.trim();
+        if (!delim) {
+            this.showToast(t('toast_delimiter_empty'), 'warning');
+            this.inputSettingDelimiter.focus();
+            return;
+        }
+
+        const defaultType = this.selectSettingDefaultType.value || 'Text';
+
+        try {
+            const res = await eel.update_settings(delim, defaultType)();
+            if (res && res.success) {
+                this.settings = {
+                    delimiter: (res.settings && res.settings.delimiter) ? res.settings.delimiter : delim,
+                    default_data_type: (res.settings && res.settings.default_data_type) ? res.settings.default_data_type : defaultType
+                };
+                localStorage.setItem('je_settings_config', JSON.stringify(this.settings));
+                if (res.roots) {
+                    this.updateUI(res.roots);
+                }
+                this.closeSettingsModal();
+                this.showToast(t('toast_settings_saved'), 'success');
+            } else {
+                this.showToast((res && res.error) ? res.error : t('toast_settings_failed'), 'error');
+            }
+        } catch (err) {
+            this.showToast("RPC Error saving settings: " + err, "error");
+        }
+    },
+
+    async resetSettings() {
+        const t = (k, p) => (window.I18n ? I18n.t(k, p) : k);
+        try {
+            const res = await eel.reset_settings()();
+            if (res && res.success) {
+                this.settings = {
+                    delimiter: (res.settings && res.settings.delimiter) ? res.settings.delimiter : '\\',
+                    default_data_type: (res.settings && res.settings.default_data_type) ? res.settings.default_data_type : 'Text'
+                };
+                localStorage.setItem('je_settings_config', JSON.stringify(this.settings));
+                if (this.inputSettingDelimiter) this.inputSettingDelimiter.value = this.settings.delimiter;
+                if (this.selectSettingDefaultType) this.selectSettingDefaultType.value = this.settings.default_data_type;
+                if (res.roots) {
+                    this.updateUI(res.roots);
+                }
+                this.closeSettingsModal();
+                this.showToast(t('toast_settings_reset'), 'success');
+            } else {
+                this.showToast(t('toast_settings_failed'), 'error');
+            }
+        } catch (err) {
+            this.showToast("RPC Error resetting settings: " + err, "error");
+        }
     }
 };

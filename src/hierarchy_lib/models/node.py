@@ -2,6 +2,7 @@
 
 import uuid
 from typing import List, Dict, Any, Optional
+from src.hierarchy_lib.models.data_types import VALID_DATA_TYPES, validate_data_type
 
 
 class HierarchyNode:
@@ -11,19 +12,22 @@ class HierarchyNode:
     A node with len(children) == 0 dynamically evaluates to a leaf (is_folder = False).
     """
 
-    def __init__(self, name: str, node_id: Optional[str] = None):
+    VALID_DATA_TYPES = VALID_DATA_TYPES
+
+    def __init__(self, name: str, node_id: Optional[str] = None, data_type: Optional[str] = "Text"):
         self.id: str = node_id if node_id else str(uuid.uuid4())
         self.name: str = self.sanitize_name(name)
         self.parent: Optional["HierarchyNode"] = None
         self.children: List["HierarchyNode"] = []
+        self.data_type: str = self.validate_data_type(data_type) if data_type else "Text"
 
     @staticmethod
     def sanitize_name(name: str) -> str:
-        """Sanitize node name to prevent unescaped backslashes breaking path delimiters."""
+        """Sanitize node name to trim whitespace and prevent unescaped control chars."""
         if not name or not str(name).strip():
             return "Unnamed Node"
         clean_name = str(name).strip()
-        return clean_name.replace("\\", "/")
+        return clean_name
 
     @property
     def is_folder(self) -> bool:
@@ -81,20 +85,38 @@ class HierarchyNode:
                 return found
         return None
 
-    def get_absolute_path(self) -> str:
-        """Recursively builds backslash-delimited path from root to this node (Root\\Folder\\Item)."""
+    def rename(self, new_name: str) -> None:
+        """Renames this node with validation (rejects empty strings / whitespace-only) and strips whitespace."""
+        if not new_name or not str(new_name).strip():
+            raise ValueError("Node name cannot be empty or whitespace only.")
+        self.name = self.sanitize_name(new_name)
+
+    @classmethod
+    def validate_data_type(cls, data_type: str) -> str:
+        """Validates and returns normalized canonical standard Excel data type string."""
+        return validate_data_type(data_type)
+
+    def set_data_type(self, data_type: str) -> None:
+        """Sets data type with validation against standard Excel types."""
+        self.data_type = self.validate_data_type(data_type)
+
+    def get_absolute_path(self, delimiter: Optional[str] = None) -> str:
+        """Recursively builds delimited path from root to this node (Root\\Folder\\Item)."""
+        delim = delimiter if delimiter is not None else "\\"
         if self.parent is None:
             return self.name
-        parent_path = self.parent.get_absolute_path()
-        return f"{parent_path}\\{self.name}"
+        parent_path = self.parent.get_absolute_path(delimiter=delim)
+        return f"{parent_path}{delim}{self.name}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, delimiter: Optional[str] = None) -> Dict[str, Any]:
         """Serialize node and its children into a dictionary DTO."""
+        delim = delimiter if delimiter is not None else "\\"
         return {
             "id": self.id,
             "name": self.name,
+            "data_type": self.data_type,
             "is_folder": self.is_folder,
             "is_container": self.is_container,
-            "absolute_path": self.get_absolute_path(),
-            "children": [child.to_dict() for child in self.children]
+            "absolute_path": self.get_absolute_path(delimiter=delim),
+            "children": [child.to_dict(delimiter=delim) for child in self.children]
         }

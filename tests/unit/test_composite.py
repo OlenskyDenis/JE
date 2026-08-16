@@ -1,9 +1,7 @@
-"""Unit tests for unified dynamic HierarchyNode and backwards-compatible Composite/Leaf wrappers."""
+"""Unit tests for unified dynamic HierarchyNode."""
 
 import pytest
 from src.hierarchy_lib.models.node import HierarchyNode
-from src.hierarchy_lib.models.composite import CompositeNode
-from src.hierarchy_lib.models.leaf import LeafNode
 
 
 def test_hierarchy_node_initial_leaf_state():
@@ -105,13 +103,75 @@ def test_hierarchy_node_serialization():
     assert len(c["children"]) == 0
 
 
-def test_backwards_compatible_composite_and_leaf_aliases():
-    comp = CompositeNode("Folder")
-    leaf = LeafNode("Item")
-    comp.add_child(leaf)
 
-    assert comp.is_folder is True
-    assert comp.is_container is True
-    assert leaf.is_folder is False
-    assert leaf.is_container is False
-    assert leaf.get_absolute_path() == "Folder\\Item"
+def test_hierarchy_node_rename():
+    node = HierarchyNode("OldName")
+    assert node.name == "OldName"
+
+    # Valid rename with whitespace trimming
+    node.rename("  NewName  ")
+    assert node.name == "NewName"
+
+    # Child path propagation after parent rename
+    child = HierarchyNode("ChildItem")
+    node.add_child(child)
+    assert child.get_absolute_path() == "NewName\\ChildItem"
+
+    node.rename("ParentCategory")
+    assert child.get_absolute_path() == "ParentCategory\\ChildItem"
+
+    # Empty string and whitespace-only rejections
+    with pytest.raises(ValueError, match="cannot be empty"):
+        node.rename("")
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        node.rename("   ")
+
+    # Name remains unchanged on rejected rename
+    assert node.name == "ParentCategory"
+
+
+def test_hierarchy_node_data_type_defaults_and_mutation():
+    """HierarchyNode defaults to Text data_type and allows mutation to standard Excel types."""
+    node = HierarchyNode("Item1")
+    assert node.data_type == "Text"
+
+    # Mutate to standard types
+    node.set_data_type("Currency")
+    assert node.data_type == "Currency"
+
+    node.set_data_type("Date")
+    assert node.data_type == "Date"
+
+    node.set_data_type("Integer")
+    assert node.data_type == "Integer"
+
+    # Reject invalid data types
+    with pytest.raises(ValueError, match="Invalid data type"):
+        node.set_data_type("UnsupportedType")
+
+
+def test_hierarchy_node_serialization_with_data_type():
+    """Serialization includes data_type attribute."""
+    node = HierarchyNode("Price", data_type="Currency")
+    d = node.to_dict()
+    assert d["name"] == "Price"
+    assert d["data_type"] == "Currency"
+
+
+def test_hierarchy_node_folder_to_leaf_data_type_lifecycle():
+    """When a folder loses all children, it transitions to leaf and retains valid data_type."""
+    parent = HierarchyNode("Category", data_type="Text")
+    child = HierarchyNode("Item", data_type="Decimal")
+    parent.add_child(child)
+
+    assert parent.is_folder is True
+
+    # Remove child -> parent transitions back to leaf
+    parent.remove_child(child.id)
+    assert parent.is_folder is False
+    assert parent.data_type == "Text"
+    d = parent.to_dict()
+    assert d["is_folder"] is False
+    assert d["data_type"] == "Text"
+
