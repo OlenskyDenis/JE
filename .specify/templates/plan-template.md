@@ -6,41 +6,42 @@
 
 **Note**: This template is filled in by the `/speckit-plan` command; its definition describes the execution workflow.
 
+---
+
 ## Summary
 
 [Extract from feature spec: primary requirement + technical approach from research]
 
+---
+
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+**Language/Version**: Python 3.10+ & Vanilla JavaScript (ES2022)  
+**Primary Dependencies**: Eel (WebSocket JSON-RPC), openpyxl  
+**Storage**: Atomic `settings.json`, multi-sheet `.xlsx` files  
+**Testing**: pytest (100% pass rate, zero warnings, AST architecture linters)  
+**Target Platform**: Desktop (Windows/Cross-platform Chromium Eel)  
+**Project Type**: Desktop GUI / Hybrid Web-Python App  
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+---
 
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
-
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
-
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
-
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
-
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
-
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
-
-## Constitution Check
+## Constitution & Modularity Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### 1. Principle VI: System Map & Context Routing Gate
+- [ ] Loaded `.specify/system_map.md` Master Router Hub.
+- [ ] Loaded relevant modular map(s) in `.specify/system_map/` for this feature domain.
+
+### 2. Principle VIII: 200-Line Modularity Threshold Check
+*Scan all files touched by this feature. If any file exceeds 200 lines, plan its decomposition.*
+
+| File to Touch | Current Line Count | Exceeds 200 Lines? | Decomposition / Refactoring Plan |
+|---|:---:|:---:|---|
+| *e.g., `src/app/eel_bridge.py`* | *427* | *Yes* | *Extract new endpoint logic into focused sub-router or module.* |
+| *e.g., `src/hierarchy_lib/models/node.py`* | *122* | *No* | *In compliance (< 200 lines).* |
+
+---
 
 ## Project Structure
 
@@ -51,63 +52,36 @@ specs/[###-feature]/
 ├── plan.md              # This file (/speckit-plan command output)
 ├── research.md          # Phase 0 output (/speckit-plan command)
 ├── data-model.md        # Phase 1 output (/speckit-plan command)
-├── quickstart.md        # Phase 1 output (/speckit-plan command)
-├── contracts/           # Phase 1 output (/speckit-plan command)
-└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
+└── tasks.md             # Phase 2 output (/speckit-tasks command)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
 src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
+├── app/
+│   ├── main.py
+│   └── eel_bridge.py
+├── hierarchy_lib/
 │   ├── models/
 │   ├── services/
-│   └── api/
-└── tests/
+│   └── adapters/
+└── web/
+    ├── index.html
+    ├── css/
+    └── js/
 
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+tests/
+├── integration/
+└── unit/
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+---
 
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+|---|---|---|
+| *None* | *N/A* | *N/A* |

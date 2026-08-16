@@ -1,16 +1,17 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.5.0 → 1.6.0
+Version change: 1.6.0 → 1.7.0
 Modified principles:
   - Principle I: Spec-Driven Development (SDD) & Phase Scope Enforcement
   - Principle II: Object-Oriented Programming (OOP), SOLID Principles, Strict YAGNI & Downward-Only Dependency Flow
   - Principle III: Gang of Four (GoF) Design Patterns (Dynamic Composite pattern mandatory for nested hierarchies)
   - Principle IV: Library-First Approach, Test-Driven Development (TDD) & Test-Code Parity Gate
   - Principle V: Self-Contained & Environment-Independent Excel Processing (No MS Excel app requirement)
-  - Principle VI (AMENDED): Mandatory Modular System Map First-Load, Context Router Navigation, Full Dependency Tracing, Proactive Redundancy Audit & Retirement Verification Gate (Mandatory first-step loading of .specify/system_map.md Master Router and domain-targeted loading of .specify/system_map/*.md modular maps)
+  - Principle VI: Mandatory Modular System Map First-Load, Context Router Navigation, Full Dependency Tracing, Proactive Redundancy Audit & Retirement Verification Gate
   - Principle VII: Proactive Specification Red Teaming & Zero-Data / Empty-State Stress Testing
-Added sections: Modular System Map Router navigation in Principle VI and Workflow Controls
+  - Principle VIII (ADDED): 200-Line Modularity Threshold & File Scope Guardrail (Mandatory evaluation and decomposition of any source file exceeding 200 lines to enforce SRP and eliminate complexity bloat)
+Added sections: Principle VIII in Core Principles and Workflow Controls
 Removed sections: None
 Follow-up TODOs: None
 -->
@@ -77,6 +78,13 @@ Follow-up TODOs: None
   3. *Fault & Offline Tolerance*: Are graceful fallbacks in place for empty sheets, network disconnections, or dialog cancellations?
 - **Immediate Flagging & Solution Proposals**: If an architectural conflict, user deadlock, or UX regression is discovered during Red Teaming, the agent must proactively flag it to the user and propose alternative designs (e.g. contextual action triggers in empty states) prior to finalizing the plan.
 
+### VIII. 200-Line Modularity Threshold & File Scope Guardrail
+- **Modularity Threshold (200 Lines Standard)**: Source code files (Python modules, controllers, services, JavaScript modules) should strictly adhere to SRP and should not exceed **200 lines of code**.
+- **Proactive Refactoring Trigger**: Whenever a feature touches or inspects a file that exceeds 200 lines (or when a new feature would push it beyond 200 lines), the AI agent and developers **MUST**:
+  1. Audit the file for dead, redundant, or obsolete functions and remove them.
+  2. Decompose the file into two or more focused, single-responsibility sub-modules, controllers, or services (e.g. extracting modal managers, splitting RPC routes, or separating rendering sub-routines).
+- **Pragmatic Exemptions**: Raw static data dictionaries (e.g. bilingual translation bundles in `i18n.js`), CSS stylesheets (`style.css`), and declarative templates (`index.html`) are exempt unless component-level decomposition is specifically planned.
+
 ---
 
 ## Workflow & Phase Controls
@@ -88,9 +96,10 @@ Follow-up TODOs: None
    - **Step 4**: Create and clarify requirements in feature specifications (`spec.md`). No source code writing.
 2. **Plan Phase**:
    - Produce architectural decisions, component contracts, and research documents (`plan.md`).
+   - Check file length thresholds (Principle VIII): identify any files exceeding 200 lines that will be touched, and plan their modular decomposition.
    - Re-verify Red Teaming findings and update the relevant modular maps in [`.specify/system_map/`](../system_map/). No source code writing.
 3. **Tasks Phase**:
-   - Generate discrete, testable action items (`tasks.md`), including edge case test coverage and hygiene cleanup tasks. No source code writing.
+   - Generate discrete, testable action items (`tasks.md`), including decomposition tasks for any files exceeding 200 lines, edge case test coverage, and hygiene cleanup tasks. No source code writing.
 4. **Analyze Phase**:
    - Validate alignment across spec, plan, tasks, system map, and Red Teaming guarantees. No source code writing.
 5. **Implement Phase**:
@@ -102,4 +111,4 @@ Follow-up TODOs: None
 - This constitution supersedes all informal team conventions or ad-hoc practices.
 - Every pull request, spec review, and task breakdown must be verified for compliance against these principles.
 
-**Version**: 1.6.0 | **Ratified**: 2026-08-13 | **Last Amended**: 2026-08-16
+**Version**: 1.7.0 | **Ratified**: 2026-08-13 | **Last Amended**: 2026-08-16
