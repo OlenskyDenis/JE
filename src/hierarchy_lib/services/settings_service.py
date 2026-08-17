@@ -2,7 +2,8 @@
 
 import json
 import os
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Optional, Tuple
+
 from src.hierarchy_lib.models.data_types import VALID_DATA_TYPES, validate_data_type
 
 
@@ -15,10 +16,7 @@ class SettingsService:
 
     VALID_DATA_TYPES: Tuple[str, ...] = VALID_DATA_TYPES
 
-    DEFAULT_SETTINGS: Dict[str, str] = {
-        "delimiter": DEFAULT_DELIMITER,
-        "default_data_type": DEFAULT_DATA_TYPE
-    }
+    DEFAULT_SETTINGS: Dict[str, str] = {"delimiter": DEFAULT_DELIMITER, "default_data_type": DEFAULT_DATA_TYPE}
 
     _active_settings: Dict[str, str] = dict(DEFAULT_SETTINGS)
 
@@ -60,10 +58,7 @@ class SettingsService:
                     data = json.load(f)
                 delimiter = cls.validate_delimiter(data.get("delimiter", cls.DEFAULT_DELIMITER))
                 default_data_type = cls.validate_default_data_type(data.get("default_data_type", cls.DEFAULT_DATA_TYPE))
-                cls._active_settings = {
-                    "delimiter": delimiter,
-                    "default_data_type": default_data_type
-                }
+                cls._active_settings = {"delimiter": delimiter, "default_data_type": default_data_type}
             except Exception:
                 # In case of corrupted file, fallback safely to defaults
                 cls._active_settings = dict(cls.DEFAULT_SETTINGS)
@@ -107,19 +102,17 @@ class SettingsService:
 
     @classmethod
     def update_settings(
-        cls,
-        delimiter: Optional[str] = None,
-        default_data_type: Optional[str] = None,
-        config_path: Optional[str] = None
+        cls, delimiter: Optional[str] = None, default_data_type: Optional[str] = None, config_path: Optional[str] = None
     ) -> Dict[str, str]:
         """Validates, updates, and persists settings."""
         valid_delimiter = cls.validate_delimiter(delimiter) if delimiter is not None else cls.get_delimiter()
-        valid_type = cls.validate_default_data_type(default_data_type) if default_data_type is not None else cls.get_default_data_type()
+        valid_type = (
+            cls.validate_default_data_type(default_data_type)
+            if default_data_type is not None
+            else cls.get_default_data_type()
+        )
 
-        new_settings = {
-            "delimiter": valid_delimiter,
-            "default_data_type": valid_type
-        }
+        new_settings = {"delimiter": valid_delimiter, "default_data_type": valid_type}
         cls._active_settings = new_settings
         cls.save_settings(new_settings, config_path)
         return dict(cls._active_settings)

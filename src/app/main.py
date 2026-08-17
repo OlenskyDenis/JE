@@ -7,7 +7,8 @@ import sys
 os.environ.setdefault("PURE_PYTHON", "1")
 
 import eel
-import src.app.eel_bridge  # Register @eel.expose methods
+
+import src.app.eel_bridge  # noqa: F401 - Register all @eel.expose endpoints with Eel
 
 
 def main():

@@ -1,7 +1,7 @@
 """Unit tests for FileDialogService using mocked tkinter.filedialog."""
 
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
+
 from src.hierarchy_lib.services.dialog_service import FileDialogService
 
 

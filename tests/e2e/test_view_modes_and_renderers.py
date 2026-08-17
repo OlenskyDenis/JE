@@ -1,8 +1,11 @@
 """E2E browser tests for View Mode Switcher, Excel Blocks Matrix, and Unique Levels Rendering (Features 027, 028, 030)."""
 
+import re
+
 import pytest
 from playwright.sync_api import Page, expect
-from tests.e2e.conftest import create_root_node, add_child_node
+
+from tests.e2e.conftest import add_child_node, create_root_node
 
 
 @pytest.mark.e2e
@@ -85,3 +88,26 @@ def test_unique_level_view_leaf_and_branch_partitioning(page: Page):
     expect(tier1_row.locator(".level-group-leaves .chip-title:has-text('Payroll')")).to_be_visible()
     expect(tier1_row.locator(".level-group-branches .chip-title:has-text('Recruitment')")).to_be_visible()
     expect(tier1_row.locator(".level-group-separator")).to_be_visible()
+
+
+@pytest.mark.e2e
+def test_unique_level_duplicate_highlight_sync(page: Page):
+    """Verifies duplicate node names across levels highlight synchronously on hover."""
+    create_root_node(page, "Global", data_type="Text")
+    add_child_node(page, "Global", "Services", data_type="Text")
+    add_child_node(page, "Services", "Common", data_type="Text")
+
+    create_root_node(page, "Local", data_type="Text")
+    add_child_node(page, "Local", "Common", data_type="Text")
+
+    page.click("#btnViewUniqueLevels")
+    expect(page.locator("#uniqueLevelView")).not_to_have_class("hidden")
+
+    common_chips = page.locator(".level-header-chip:has(.chip-title:has-text('Common'))")
+    expect(common_chips).to_have_count(2)
+
+    # Hover over first chip
+    common_chips.first.hover()
+    expect(common_chips.first).to_have_class(re.compile(r"highlight-match-sync"))
+    expect(common_chips.last).to_have_class(re.compile(r"highlight-match-sync"))
+

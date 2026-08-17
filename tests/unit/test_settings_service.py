@@ -1,8 +1,9 @@
 """Unit tests for SettingsService."""
 
-import os
 import json
+
 import pytest
+
 from src.hierarchy_lib.services.settings_service import SettingsService
 
 
@@ -21,11 +22,7 @@ def test_default_settings_when_no_file(temp_config_path):
 
 def test_update_settings_valid(temp_config_path):
     SettingsService.reset_to_defaults(config_path=temp_config_path)
-    updated = SettingsService.update_settings(
-        delimiter="/",
-        default_data_type="Decimal",
-        config_path=temp_config_path
-    )
+    updated = SettingsService.update_settings(delimiter="/", default_data_type="Decimal", config_path=temp_config_path)
     assert updated["delimiter"] == "/"
     assert updated["default_data_type"] == "Decimal"
 
@@ -38,10 +35,7 @@ def test_update_settings_valid(temp_config_path):
 
 def test_update_settings_custom_multi_char_delimiter(temp_config_path):
     SettingsService.reset_to_defaults(config_path=temp_config_path)
-    updated = SettingsService.update_settings(
-        delimiter="::",
-        config_path=temp_config_path
-    )
+    updated = SettingsService.update_settings(delimiter="::", config_path=temp_config_path)
     assert updated["delimiter"] == "::"
 
 
@@ -62,11 +56,7 @@ def test_validate_default_data_type_rejection():
 
 
 def test_reset_to_defaults(temp_config_path):
-    SettingsService.update_settings(
-        delimiter="|",
-        default_data_type="Integer",
-        config_path=temp_config_path
-    )
+    SettingsService.update_settings(delimiter="|", default_data_type="Integer", config_path=temp_config_path)
     reset = SettingsService.reset_to_defaults(config_path=temp_config_path)
     assert reset["delimiter"] == "\\"
     assert reset["default_data_type"] == "Text"

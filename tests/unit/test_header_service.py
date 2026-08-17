@@ -1,6 +1,5 @@
 """Unit tests for HeaderService: extraction, deduplication, insertion-order preservation, and filtering."""
 
-import pytest
 from src.hierarchy_lib.services.header_service import HeaderService
 
 

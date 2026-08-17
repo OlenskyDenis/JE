@@ -2,7 +2,7 @@
 
 import tkinter as tk
 from tkinter import filedialog
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class FileDialogService:
@@ -22,9 +22,7 @@ class FileDialogService:
 
     @classmethod
     def ask_open_file(
-        cls,
-        title: str = "Select Excel File",
-        filetypes: Optional[List[Tuple[str, str]]] = None
+        cls, title: str = "Select Excel File", filetypes: Optional[List[Tuple[str, str]]] = None
     ) -> Dict[str, Any]:
         """Opens a native OS open file dialog for selecting an Excel file."""
         if filetypes is None:
@@ -33,25 +31,11 @@ class FileDialogService:
         root = None
         try:
             root = cls._create_hidden_root()
-            path = filedialog.askopenfilename(
-                parent=root,
-                title=title,
-                filetypes=filetypes
-            )
+            path = filedialog.askopenfilename(parent=root, title=title, filetypes=filetypes)
             file_path = str(path).strip() if path else None
-            return {
-                "success": True,
-                "cancelled": not bool(file_path),
-                "file_path": file_path,
-                "error": None
-            }
+            return {"success": True, "cancelled": not bool(file_path), "file_path": file_path, "error": None}
         except Exception as e:
-            return {
-                "success": False,
-                "cancelled": True,
-                "file_path": None,
-                "error": str(e)
-            }
+            return {"success": False, "cancelled": True, "file_path": None, "error": str(e)}
         finally:
             if root is not None:
                 try:
@@ -65,7 +49,7 @@ class FileDialogService:
         title: str = "Save Reorganized Excel File",
         default_name: str = "reorganized_headers_export.xlsx",
         defaultextension: str = ".xlsx",
-        filetypes: Optional[List[Tuple[str, str]]] = None
+        filetypes: Optional[List[Tuple[str, str]]] = None,
     ) -> Dict[str, Any]:
         """Opens a native OS save file dialog for choosing destination path."""
         if filetypes is None:
@@ -79,22 +63,12 @@ class FileDialogService:
                 title=title,
                 initialfile=default_name,
                 defaultextension=defaultextension,
-                filetypes=filetypes
+                filetypes=filetypes,
             )
             file_path = str(path).strip() if path else None
-            return {
-                "success": True,
-                "cancelled": not bool(file_path),
-                "file_path": file_path,
-                "error": None
-            }
+            return {"success": True, "cancelled": not bool(file_path), "file_path": file_path, "error": None}
         except Exception as e:
-            return {
-                "success": False,
-                "cancelled": True,
-                "file_path": None,
-                "error": str(e)
-            }
+            return {"success": False, "cancelled": True, "file_path": None, "error": str(e)}
         finally:
             if root is not None:
                 try:

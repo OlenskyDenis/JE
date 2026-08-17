@@ -1,7 +1,8 @@
 """Unified dynamic HierarchyNode class for hierarchical database structures."""
 
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from src.hierarchy_lib.models.data_types import VALID_DATA_TYPES, validate_data_type
 
 
@@ -118,5 +119,5 @@ class HierarchyNode:
             "is_folder": self.is_folder,
             "is_container": self.is_container,
             "absolute_path": self.get_absolute_path(delimiter=delim),
-            "children": [child.to_dict(delimiter=delim) for child in self.children]
+            "children": [child.to_dict(delimiter=delim) for child in self.children],
         }

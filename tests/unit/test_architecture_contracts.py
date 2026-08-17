@@ -2,7 +2,6 @@
 
 import ast
 from pathlib import Path
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SRC_DIR = REPO_ROOT / "src"
@@ -85,7 +84,32 @@ class TestArchitectureContracts:
         found_retired = function_names.intersection(retired_rpcs)
         assert not found_retired, f"Retired RPC functions still present in eel_bridge.py: {found_retired}"
 
+    def test_main_imports_eel_bridge(self):
+        """
+        Entry Point Contract: Ensure main.py imports eel_bridge so all @eel.expose
+        endpoints are registered when launching the desktop app.
+        """
+        main_file = APP_DIR / "main.py"
+        assert main_file.exists()
+        content = main_file.read_text(encoding="utf-8")
+        tree = ast.parse(content, filename=str(main_file))
+
+        imported_modules = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported_modules.add(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    imported_modules.add(node.module)
+
+        assert any(
+            m in imported_modules or m.endswith("eel_bridge")
+            for m in ["src.app.eel_bridge", "eel_bridge", ".eel_bridge"]
+        ), "main.py must import src.app.eel_bridge to register exposed endpoints"
+
     def test_system_map_modular_router_integrity(self):
+
         """
         Modular System Map Integrity: Ensure master router and all MVC modular maps exist and are non-empty.
         """
@@ -110,3 +134,38 @@ class TestArchitectureContracts:
             mod_file = system_map_dir / mod_name
             assert mod_file.exists(), f"Modular system map file '{mod_name}' is missing"
             assert mod_file.stat().st_size > 100, f"Modular system map file '{mod_name}' is empty or too short"
+
+    def test_file_line_count_thresholds(self):
+        """
+        Constitution Principle VIII Enforcement:
+        All non-exempt Python source files in src/ and JavaScript files in src/web/js/
+        MUST NOT exceed 200 lines.
+        Exemptions:
+          - src/web/js/i18n.js (Static translation dictionary)
+        """
+        line_threshold = 200
+        violations = []
+
+        # 1. Check all Python files in src/
+        for py_file in SRC_DIR.rglob("*.py"):
+            lines = py_file.read_text(encoding="utf-8").splitlines()
+            if len(lines) > line_threshold:
+                rel_path = py_file.relative_to(REPO_ROOT)
+                violations.append(f"{rel_path}: {len(lines)} lines (limit: {line_threshold})")
+
+        # 2. Check all JavaScript files in src/web/js/ (except i18n.js)
+        js_dir = SRC_DIR / "web" / "js"
+        if js_dir.exists():
+            for js_file in js_dir.glob("*.js"):
+                if js_file.name == "i18n.js":
+                    continue
+                lines = js_file.read_text(encoding="utf-8").splitlines()
+                if len(lines) > line_threshold:
+                    rel_path = js_file.relative_to(REPO_ROOT)
+                    violations.append(f"{rel_path}: {len(lines)} lines (limit: {line_threshold})")
+
+        assert not violations, (
+            f"Constitution Principle VIII Line-Count Violations (threshold: {line_threshold} lines):\n"
+            + "\n".join(violations)
+        )
+

@@ -1,6 +1,7 @@
 """WorkspaceForest service managing multi-root tree structures with dynamic HierarchyNodes."""
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from src.hierarchy_lib.models.node import HierarchyNode
 
 
@@ -33,7 +34,9 @@ class WorkspaceForest:
                 return found
         return None
 
-    def add_node_at_zone(self, node: HierarchyNode, target_node_id: Optional[str] = None, zone: Optional[str] = None) -> None:
+    def add_node_at_zone(
+        self, node: HierarchyNode, target_node_id: Optional[str] = None, zone: Optional[str] = None
+    ) -> None:
         """
         Inserts a node into the forest relative to target_node_id based on zone.
         If target_node_id or zone is None, appends as a top-level root node.
@@ -116,6 +119,4 @@ class WorkspaceForest:
     def to_dict(self, delimiter: Optional[str] = None) -> Dict[str, Any]:
         """Serializes all root trees to dictionary DTO using specified or active delimiter."""
         delim = delimiter if delimiter is not None else "\\"
-        return {
-            "roots": [root.to_dict(delimiter=delim) for root in self.root_nodes]
-        }
+        return {"roots": [root.to_dict(delimiter=delim) for root in self.root_nodes]}

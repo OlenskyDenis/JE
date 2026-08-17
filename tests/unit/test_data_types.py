@@ -1,6 +1,7 @@
 """Unit tests for centralized standard Excel data types and validation logic."""
 
 import pytest
+
 from src.hierarchy_lib.models.data_types import VALID_DATA_TYPES, validate_data_type
 
 

@@ -2,7 +2,8 @@
 
 import pytest
 from playwright.sync_api import Page, expect
-from tests.e2e.conftest import create_root_node, add_child_node
+
+from tests.e2e.conftest import add_child_node, create_root_node
 
 
 @pytest.mark.e2e

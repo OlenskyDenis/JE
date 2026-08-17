@@ -1,0 +1,12 @@
+{
+  "quality-gate-reminder": {
+    "enabled": true,
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python -c \"import json; print(json.dumps({'injectSteps': []}))\"",
+        "timeout": 10
+      }
+    ]
+  }
+}

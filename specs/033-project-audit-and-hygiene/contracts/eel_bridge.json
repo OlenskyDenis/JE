@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Eel Bridge & Architecture Contracts",
+  "description": "RPC contracts and architectural invariants for feature 033",
+  "endpoints": {
+    "get_settings": { "params": {}, "return": { "success": "boolean", "settings": "object", "error": "string?" } },
+    "update_settings": { "params": { "delimiter": "string?", "default_data_type": "string?" }, "return": { "success": "boolean", "settings": "object", "roots": "array", "error": "string?" } },
+    "reset_settings": { "params": {}, "return": { "success": "boolean", "settings": "object", "roots": "array", "error": "string?" } },
+    "add_node": { "params": { "parent_id": "string?", "name": "string", "is_container": "boolean", "target_id": "string?", "zone": "string?", "data_type": "string?" }, "return": { "success": "boolean", "node": "object", "roots": "array", "error": "string?" } },
+    "move_node": { "params": { "node_id": "string", "target_node_id": "string", "zone": "string" }, "return": { "success": "boolean", "rejection_reason": "string?", "roots": "array" } },
+    "delete_node": { "params": { "node_id": "string" }, "return": { "success": "boolean", "roots": "array", "error": "string?" } },
+    "update_node": { "params": { "node_id": "string", "name": "string?", "data_type": "string?" }, "return": { "success": "boolean", "node": "object", "roots": "array", "error": "string?" } },
+    "import_excel_file": { "params": { "file_path": "string" }, "return": { "success": "boolean", "file_path": "string", "sheets": "array", "active_sheet": "string", "headers": "array", "all_headers": "object", "headers_meta": "array", "all_headers_meta": "object", "template_path": "string?", "roots": "array", "error": "string?" } },
+    "refresh_excel_session": { "params": {}, "return": { "success": "boolean", "file_path": "string", "sheets": "array", "active_sheet": "string", "headers": "array", "all_headers": "object", "headers_meta": "array", "all_headers_meta": "object", "template_path": "string?", "roots": "array", "error": "string?" } },
+    "switch_active_sheet": { "params": { "sheet_name": "string" }, "return": { "success": "boolean", "sheet_name": "string", "headers": "array", "template_path": "string?", "roots": "array", "error": "string?" } },
+    "save_template_sync": { "params": { "output_path": "string?" }, "return": { "success": "boolean", "template_path": "string", "total_columns": "integer", "modified_sheets": "array", "error": "string?" } },
+    "open_file_dialog": { "params": {}, "return": { "success": "boolean", "file_path": "string?", "cancelled": "boolean?", "error": "string?" } },
+    "save_file_dialog": { "params": { "default_name": "string?" }, "return": { "success": "boolean", "file_path": "string?", "cancelled": "boolean?", "error": "string?" } }
+  },
+  "invariants": {
+    "max_lines_per_file": 200,
+    "exempt_files": ["src/web/js/i18n.js", "src/web/css/style.css", "src/web/index.html"],
+    "dead_css_allowed": 0
+  }
+}

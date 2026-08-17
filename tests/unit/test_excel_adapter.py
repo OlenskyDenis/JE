@@ -1,8 +1,10 @@
 """Unit tests for ExcelHierarchyAdapter Row 1 header reading, sheet management, and horizontal re-export."""
 
-import tempfile
 import os
+import tempfile
+
 import openpyxl
+
 from src.hierarchy_lib.adapters.excel_adapter import ExcelHierarchyAdapter
 
 
@@ -42,10 +44,11 @@ def test_get_sheet_names_and_read_row1_headers():
             os.remove(tmp_path)
 
 
-
 def test_export_multi_sheet_template():
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_src, \
-         tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_out:
+    with (
+        tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_src,
+        tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_out,
+    ):
         src_path = tmp_src.name
         out_path = tmp_out.name
 
@@ -70,13 +73,11 @@ def test_export_multi_sheet_template():
         # Simultaneously export modified leaf paths for Sales and Inventory, leaving Reference unmodified
         sheet_map = {
             "Sales": ["Sales\\North\\A", "Sales\\South\\B"],
-            "Inventory": ["Inv\\Warehouse\\Bin1", "Inv\\Warehouse\\Bin2", "Inv\\Warehouse\\Bin3"]
+            "Inventory": ["Inv\\Warehouse\\Bin1", "Inv\\Warehouse\\Bin2", "Inv\\Warehouse\\Bin3"],
         }
 
         total_cols = ExcelHierarchyAdapter.export_multi_sheet_template(
-            file_path_or_stream=src_path,
-            sheet_leaf_paths_map=sheet_map,
-            output_path=out_path
+            file_path_or_stream=src_path, sheet_leaf_paths_map=sheet_map, output_path=out_path
         )
 
         assert total_cols == 2 + 3 + 1  # Sales(2) + Inventory(3) + Reference(1 streamed)
@@ -221,7 +222,6 @@ def test_read_row1_headers_whitespace_counts_as_empty():
             os.remove(tmp_path)
 
 
-
 def test_export_multi_sheet_template_with_cell_number_formats():
     with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_out:
         out_path = tmp_out.name
@@ -238,9 +238,7 @@ def test_export_multi_sheet_template_with_cell_number_formats():
         }
 
         ExcelHierarchyAdapter.export_multi_sheet_template(
-            file_path_or_stream=None,
-            sheet_leaf_paths_map=sheet_map,
-            output_path=out_path
+            file_path_or_stream=None, sheet_leaf_paths_map=sheet_map, output_path=out_path
         )
 
         wb_out = openpyxl.load_workbook(out_path)
@@ -254,8 +252,15 @@ def test_export_multi_sheet_template_with_cell_number_formats():
         assert ws.cell(row=1, column=5).value == "Company\\Finance\\Notes"
 
         # Check openpyxl number_format
-        assert "$" in ws.cell(row=1, column=1).number_format or ws.cell(row=1, column=1).number_format == openpyxl.styles.numbers.FORMAT_CURRENCY_USD_SIMPLE or "#,##0" in ws.cell(row=1, column=1).number_format
-        assert "yy" in ws.cell(row=1, column=2).number_format.lower() or "dd" in ws.cell(row=1, column=2).number_format.lower()
+        assert (
+            "$" in ws.cell(row=1, column=1).number_format
+            or ws.cell(row=1, column=1).number_format == openpyxl.styles.numbers.FORMAT_CURRENCY_USD_SIMPLE
+            or "#,##0" in ws.cell(row=1, column=1).number_format
+        )
+        assert (
+            "yy" in ws.cell(row=1, column=2).number_format.lower()
+            or "dd" in ws.cell(row=1, column=2).number_format.lower()
+        )
         assert ws.cell(row=1, column=3).number_format in ("0", "#,##0")
         assert "%" in ws.cell(row=1, column=4).number_format
         assert ws.cell(row=1, column=5).number_format in ("@", "General")
@@ -320,7 +325,7 @@ def test_read_row1_headers_and_types_strictly_max_row_1():
         c1.number_format = '"$"#,##0.00'
         c2 = ws.cell(row=1, column=2, value="StartDate")
         c2.number_format = "yyyy-mm-dd"
-        c3 = ws.cell(row=1, column=3, value="Description")
+        ws.cell(row=1, column=3, value="Description")
 
         # 10,000 data rows to test zero data row loading
         for r in range(2, 10002):
@@ -332,6 +337,7 @@ def test_read_row1_headers_and_types_strictly_max_row_1():
         wb.close()
 
         import time
+
         t0 = time.perf_counter()
         res = ExcelHierarchyAdapter.read_row1_headers_and_types(tmp_path, "MassiveSheet")
         elapsed = time.perf_counter() - t0
@@ -365,21 +371,18 @@ def test_custom_default_data_type_general_columns():
         wb.close()
 
         # Test with default_data_type="Decimal"
-        res_decimal = dict(ExcelHierarchyAdapter.read_row1_headers_and_types(
-            tmp_path, "ConfigTest", default_data_type="Decimal"
-        ))
+        res_decimal = dict(
+            ExcelHierarchyAdapter.read_row1_headers_and_types(tmp_path, "ConfigTest", default_data_type="Decimal")
+        )
         assert res_decimal["UnspecifiedColumn"] == "Decimal"
         assert res_decimal["CreatedDate"] == "Date"  # Explicit type preserved
 
         # Test with default_data_type="Integer"
-        res_int = dict(ExcelHierarchyAdapter.read_row1_headers_and_types(
-            tmp_path, "ConfigTest", default_data_type="Integer"
-        ))
+        res_int = dict(
+            ExcelHierarchyAdapter.read_row1_headers_and_types(tmp_path, "ConfigTest", default_data_type="Integer")
+        )
         assert res_int["UnspecifiedColumn"] == "Integer"
         assert res_int["CreatedDate"] == "Date"  # Explicit type preserved
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
-
-
-

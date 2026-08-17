@@ -1,6 +1,7 @@
 """PathParserService for parsing delimited path strings into WorkspaceForest DynamicNode trees."""
 
 from typing import Optional, Sequence
+
 from src.hierarchy_lib.models.node import HierarchyNode
 from src.hierarchy_lib.services.forest import WorkspaceForest
 

@@ -1,6 +1,6 @@
 """HeaderService for processing, deduplicating, and filtering Excel Row 1 headers in original sequence."""
 
-from typing import List, Any, Optional
+from typing import Any, List, Optional
 
 
 class HeaderService:

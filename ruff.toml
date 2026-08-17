@@ -1,0 +1,21 @@
+# Ruff configuration for JE project
+target-version = "py310"
+line-length = 120
+
+[lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+]
+ignore = [
+    "E501",   # Line length handled by formatter
+]
+
+[lint.per-file-ignores]
+"tests/e2e/conftest.py" = ["E402"]
+"tests/conftest.py" = ["E402"]
+
+[lint.isort]
+known-first-party = ["src"]

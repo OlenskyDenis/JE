@@ -35,16 +35,12 @@ const DragDropHandler = {
             e.dataTransfer.setData('source', 'sidebar_catalog');
             e.dataTransfer.effectAllowed = 'copy';
         });
-        sidebarItemEl.addEventListener('dragend', () => {
-            this.handleDragEnd();
-        });
+        sidebarItemEl.addEventListener('dragend', () => this.handleDragEnd());
     },
-
 
     handleDragStart(e) {
         const nodeContent = e.target.closest('.tree-node-content');
         if (!nodeContent) return;
-
         const nodeId = nodeContent.dataset.id;
         this.activeDragPayload = { isNew: false, id: nodeId };
         nodeContent.classList.add('dragging');
@@ -102,9 +98,11 @@ const DragDropHandler = {
 
             const draggedNodeWrapper = this.treeViewEl.querySelector(`.tree-node[data-id="${payload.id}"]`);
             if (draggedNodeWrapper && draggedNodeWrapper.contains(targetContent)) {
-                e.dataTransfer.dropEffect = 'none';
+                e.dataTransfer.dropEffect = 'move';
                 targetContent.classList.add('drop-prohibited');
                 document.body.classList.add('drag-prohibited');
+                this.activeDropTarget = targetContent;
+                this.activeDropZone = 'PROHIBITED';
                 return;
             } else {
                 targetContent.classList.remove('drop-prohibited');
@@ -194,3 +192,6 @@ const DragDropHandler = {
         highlighted.forEach(el => el.classList.remove('drop-zone-before', 'drop-zone-after', 'drop-zone-inside', 'drop-prohibited'));
     }
 };
+
+window.DragDropHandler = DragDropHandler;
+

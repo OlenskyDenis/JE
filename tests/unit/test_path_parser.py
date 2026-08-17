@@ -1,6 +1,5 @@
 """Unit tests for PathParserService hierarchical path parsing and tree construction."""
 
-import pytest
 from src.hierarchy_lib.models.node import HierarchyNode
 from src.hierarchy_lib.services.path_parser import PathParserService
 
@@ -35,11 +34,7 @@ class TestPathParserService:
 
     def test_parse_shared_prefix_branches_merged(self):
         """Shared parent folders should be merged into single HierarchyNode instances."""
-        paths = [
-            r"Company\HR\Employees",
-            r"Company\HR\Salaries",
-            r"Company\Finance\Invoices"
-        ]
+        paths = [r"Company\HR\Employees", r"Company\HR\Salaries", r"Company\Finance\Invoices"]
         forest = PathParserService.parse_header_paths(paths)
 
         assert len(forest.root_nodes) == 1
@@ -139,7 +134,7 @@ class TestPathParserService:
             r"Beta\SecondChild",
             r"Alpha\Sub\Item1",
             r"Zebra\Stripes\WhiteBlack",
-            r"Beta\FirstChild"
+            r"Beta\FirstChild",
         ]
         forest = PathParserService.parse_header_paths(paths)
 

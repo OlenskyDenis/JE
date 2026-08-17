@@ -1,6 +1,7 @@
 """Unit tests for unified dynamic HierarchyNode."""
 
 import pytest
+
 from src.hierarchy_lib.models.node import HierarchyNode
 
 
@@ -103,7 +104,6 @@ def test_hierarchy_node_serialization():
     assert len(c["children"]) == 0
 
 
-
 def test_hierarchy_node_rename():
     node = HierarchyNode("OldName")
     assert node.name == "OldName"
@@ -174,4 +174,3 @@ def test_hierarchy_node_folder_to_leaf_data_type_lifecycle():
     d = parent.to_dict()
     assert d["is_folder"] is False
     assert d["data_type"] == "Text"
-

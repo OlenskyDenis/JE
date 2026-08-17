@@ -43,6 +43,23 @@ def test_bilingual_language_switcher_toggle(page: Page):
 
 
 @pytest.mark.e2e
+def test_bilingual_modal_translation_parity(page: Page):
+    """Verifies that modal dialogs and buttons update their translated strings on language switch."""
+    # Open node modal in UK
+    page.click("#btnAddRootHeader")
+    expect(page.locator("#nodeModal")).to_be_visible()
+    expect(page.locator("#modalTitle")).to_have_text("Створити вузол")
+    page.click("#modalClose")
+
+    # Switch to EN
+    page.click("#langBtnEn")
+    page.click("#btnAddRootHeader")
+    expect(page.locator("#nodeModal")).to_be_visible()
+    expect(page.locator("#modalTitle")).to_have_text("Create Node")
+    page.click("#modalClose")
+
+
+@pytest.mark.e2e
 def test_refresh_workspace_button(page: Page):
     """Verifies that clicking the refresh session button functions without errors."""
     page.click("#btnRefresh")
@@ -60,13 +77,12 @@ def test_toast_notifications_visual_styles_and_types(page: Page):
         }}""")
         toast_el = page.locator(f".toast.toast-{t_type}").last
         expect(toast_el).to_be_visible()
-        
+
         # Verify computed styles are not transparent
         bg_color = toast_el.evaluate("el => window.getComputedStyle(el).backgroundColor")
         border_width = toast_el.evaluate("el => window.getComputedStyle(el).borderWidth")
         border_style = toast_el.evaluate("el => window.getComputedStyle(el).borderStyle")
-        
+
         assert bg_color != "rgba(0, 0, 0, 0)" and bg_color != "transparent"
         assert border_style == "solid"
         assert border_width != "0px"
-

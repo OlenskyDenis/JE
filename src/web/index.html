@@ -60,7 +60,7 @@
                         <h2 data-i18n="workspace_title">Робоча область конструктора ієрархії</h2>
                         <div class="workspace-sheet-picker">
                             <label for="activeSheetSelector" class="workspace-sheet-label" data-i18n="workspace_sheet_label">Аркуш:</label>
-                            <select id="activeSheetSelector" class="workspace-sheet-select" title="Active Workspace Sheet">
+                            <select id="activeSheetSelector" class="workspace-sheet-select" title="Active Workspace Sheet" disabled>
                                 <option value="" data-i18n="workspace_no_sheet">(Немає аркуша)</option>
                             </select>
                         </div>
@@ -279,10 +279,16 @@
     </div>
 
     <!-- Application Scripts -->
+    <script src="js/unique_level_extractor.js"></script>
     <script src="js/tree_renderer.js"></script>
     <script src="js/excel_block_renderer.js"></script>
     <script src="js/unique_level_renderer.js"></script>
     <script src="js/drag_drop.js"></script>
+    <script src="js/settings_controller.js"></script>
+    <script src="js/session_controller.js"></script>
+    <script src="js/modal_manager.js"></script>
+    <script src="js/sidebar_controller.js"></script>
+    <script src="js/view_mode_manager.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

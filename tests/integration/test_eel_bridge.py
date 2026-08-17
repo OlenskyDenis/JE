@@ -2,9 +2,10 @@
 
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import patch
+
 import openpyxl
+
 import src.app.eel_bridge as bridge
 
 
@@ -171,7 +172,7 @@ def test_eel_file_dialog_rpc_endpoints(mock_tk, mock_asksave, mock_askopen):
         title="Save Reorganized Excel File",
         defaultextension=".xlsx",
         initialfile="Шаблон_test_import.xlsx",
-        filetypes=[("Excel Files", "*.xlsx"), ("All Files", "*.*")]
+        filetypes=[("Excel Files", "*.xlsx"), ("All Files", "*.*")],
     )
 
 
@@ -268,8 +269,10 @@ def test_eel_update_node_and_type():
 
 
 def test_eel_import_with_data_type_metadata_and_sync():
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_src, \
-         tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_out:
+    with (
+        tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_src,
+        tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_out,
+    ):
         src_path = tmp_src.name
         out_path = tmp_out.name
 
@@ -310,7 +313,9 @@ def test_eel_import_with_data_type_metadata_and_sync():
         wb_out = openpyxl.load_workbook(out_path)
         ws_out = wb_out["Employees"]
         assert ws_out.cell(row=1, column=1).number_format == "@"
-        assert "$" in ws_out.cell(row=1, column=2).number_format or "#,##0" in ws_out.cell(row=1, column=2).number_format
+        assert (
+            "$" in ws_out.cell(row=1, column=2).number_format or "#,##0" in ws_out.cell(row=1, column=2).number_format
+        )
         assert "yy" in ws_out.cell(row=1, column=3).number_format.lower()
         wb_out.close()
     finally:
@@ -497,7 +502,3 @@ def test_eel_update_settings_validation_error():
     res = bridge.update_settings(delimiter="")
     assert res["success"] is False
     assert "error" in res
-
-
-
-

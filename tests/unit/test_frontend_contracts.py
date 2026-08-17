@@ -1,6 +1,5 @@
 import re
 from pathlib import Path
-import pytest
 
 WEB_DIR = Path(__file__).resolve().parent.parent.parent / "src" / "web"
 JS_DIR = WEB_DIR / "js"
@@ -26,11 +25,11 @@ def _extract_i18n_keys():
         uk_part = parts[0]
         en_part = parts[1]
 
-    uk_keys = set(re.findall(r'^\s*([a-zA-Z0-9_]+)\s*:', uk_part, re.MULTILINE))
+    uk_keys = set(re.findall(r"^\s*([a-zA-Z0-9_]+)\s*:", uk_part, re.MULTILINE))
     uk_keys.discard("uk")
     uk_keys.discard("I18N_DICTIONARIES")
 
-    en_keys = set(re.findall(r'^\s*([a-zA-Z0-9_]+)\s*:', en_part, re.MULTILINE))
+    en_keys = set(re.findall(r"^\s*([a-zA-Z0-9_]+)\s*:", en_part, re.MULTILINE))
     en_keys.discard("en")
 
     return uk_keys, en_keys
@@ -61,8 +60,8 @@ class TestFrontendContracts:
         i18n_content = i18n_file.read_text(encoding="utf-8")
 
         # Extract method names defined inside const I18n = { ... }
-        declared_methods = set(re.findall(r'^\s*([a-zA-Z0-9_]+)\s*\([^)]*\)\s*\{', i18n_content, re.MULTILINE))
-        declared_methods.update(re.findall(r'([a-zA-Z0-9_]+)\s*:\s*function', i18n_content))
+        declared_methods = set(re.findall(r"^\s*([a-zA-Z0-9_]+)\s*\([^)]*\)\s*\{", i18n_content, re.MULTILINE))
+        declared_methods.update(re.findall(r"([a-zA-Z0-9_]+)\s*:\s*function", i18n_content))
 
         assert "t" in declared_methods
         assert "getTypeLabel" in declared_methods
@@ -71,7 +70,7 @@ class TestFrontendContracts:
         js_files = list(JS_DIR.glob("*.js"))
         for js_file in js_files:
             content = js_file.read_text(encoding="utf-8")
-            calls = re.findall(r'\bI18n\.([a-zA-Z0-9_]+)\s*\(', content)
+            calls = re.findall(r"\bI18n\.([a-zA-Z0-9_]+)\s*\(", content)
             for call in calls:
                 assert call in declared_methods, (
                     f"Undefined I18n method '{call}' called in {js_file.name}. "
@@ -125,6 +124,23 @@ class TestFrontendContracts:
                     key = key.strip()
                     assert key in uk_keys, f"data-i18n-attr key '{key}' in index.html is not defined in i18n.js"
 
+    def test_all_js_i18n_calls_valid(self):
+        """Verify that every t('key') and I18n.t('key') call across all JS files is defined in i18n.js."""
+        uk_keys, _ = _extract_i18n_keys()
+        js_files = list(JS_DIR.glob("*.js"))
+        for js_file in js_files:
+            content = js_file.read_text(encoding="utf-8")
+            matches = re.finditer(r"\b(?:t|I18n\.t)\(\s*['\"]([\w_]+)['\"]", content)
+            for m in matches:
+                key = m.group(1)
+                assert key in uk_keys, f"Translation key '{key}' referenced in {js_file.name} is missing from i18n.js!"
+
+    def test_i18n_interpolation_contracts(self):
+        """Verify that parameterized translation keys are called with parameters in JS controllers."""
+        modal_js = (JS_DIR / "modal_manager.js").read_text(encoding="utf-8")
+        assert 't("toast_node_created", { name })' in modal_js
+        assert 't("toast_node_updated", { name })' in modal_js
+
     def test_unique_level_renderer_contract(self):
         """Verify that unique_level_renderer.js implements required API methods and partitions leaves."""
         js_file = JS_DIR / "unique_level_renderer.js"
@@ -138,4 +154,22 @@ class TestFrontendContracts:
         assert "level-group-separator" in content
         assert "level_subgroup_leaves" in content
         assert "level_subgroup_branches" in content
+
+    def test_modular_controllers_contracts(self):
+        """Verify that decomposed frontend controllers exist and export to window namespace."""
+        expected_modules = [
+            ("unique_level_extractor.js", "window.UniqueLevelExtractor = UniqueLevelExtractor;"),
+            ("unique_level_renderer.js", "window.UniqueLevelRenderer = UniqueLevelRenderer;"),
+            ("modal_manager.js", "window.ModalManager = ModalManager;"),
+            ("sidebar_controller.js", "window.SidebarController = SidebarController;"),
+            ("view_mode_manager.js", "window.ViewModeManager = ViewModeManager;"),
+            ("session_controller.js", "window.SessionController = SessionController;"),
+            ("settings_controller.js", "window.SettingsController = SettingsController;"),
+            ("app.js", "window.App = App;"),
+        ]
+        for filename, export_stmt in expected_modules:
+            p = JS_DIR / filename
+            assert p.exists(), f"Expected modular script {filename} missing at {p}"
+            content = p.read_text(encoding="utf-8")
+            assert export_stmt in content, f"Missing export statement in {filename}: '{export_stmt}'"
 

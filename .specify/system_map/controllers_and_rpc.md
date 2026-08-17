@@ -2,32 +2,36 @@
 
 **Path**: `.specify/system_map/controllers_and_rpc.md`  
 **Architectural Layer**: Controller / RPC Bridge Layer  
-**Technologies**: Python Eel (WebSocket JSON-RPC), Vanilla JavaScript (ES2022 Controller)
+**Technologies**: Python Eel (WebSocket JSON-RPC), Modular JavaScript Sub-Controllers (ES2022)
 
 ---
 
-## 1. Frontend Controller ([`app.js`](file:///E:/JE/src/web/js/app.js))
+## 1. Frontend Modular Controllers (`src/web/js/`)
 
-The `App` controller coordinates DOM event handling, RPC communication with Eel, view mode transitions, and session state.
+Following Feature 033 refactoring, the frontend monolithic controller was decomposed into focused, single-responsibility controllers ($\le 200$ lines each):
 
-### Key Controller Responsibilities:
-1. **Application Lifecycle**: Bootstraps settings, event listeners, view modes, and multi-sheet session state upon `DOMContentLoaded`.
-2. **Eel RPC Dispatching**: Calls backend `@eel.expose` endpoints and handles async JSON responses (`res.success`, `res.error`, `res.roots`).
-3. **Dirty State & Unsaved Changes**: Manages `isDirty` flag, intercepts tab switches or file imports via `#unsavedModal`, and triggers 1-click sync (`save_template_sync`).
-4. **Modal Controllers**:
-   * Settings Modal: open, save, reset defaults, and `localStorage` caching (`je_settings_config`).
-   * Node Edit Modal: open with type pre-selection, save (name & data type), and keyboard shortcuts (`Enter`/`Escape`).
-   * Node Add Modal: child creation under parent or as root.
-5. **View Mode Controller**: Switches between Tree, Matrix, and Unique Levels view modes (`switchViewMode()`) with `localStorage` persistence (`je_workspace_view_mode`).
-6. **Sidebar & Layout**: Manages tab switching (`TabController`), resizable width dragging (`SidebarResizeController`), and persistent collapse toggle.
+| Sub-Controller | File | Responsibilities |
+|---|---|---|
+| **App Orchestrator** | [`app.js`](file:///E:/JE/src/web/js/app.js) | Sub-module initialization, global DOM bindings, keyboard shortcuts (`Ctrl+Z`, `Escape`), path breadcrumb rendering, and toast notifications. |
+| **Modal Manager** | [`modal_manager.js`](file:///E:/JE/src/web/js/modal_manager.js) | Add node modal, Edit node modal (with batch rename notice), and Unsaved changes dialog. |
+| **Sidebar Controller** | [`sidebar_controller.js`](file:///E:/JE/src/web/js/sidebar_controller.js) | Catalog tabs, search filter, sidebar drag resizer, and collapsible sidebar strip. |
+| **View Mode Manager** | [`view_mode_manager.js`](file:///E:/JE/src/web/js/view_mode_manager.js) | View mode switching (Tree, Matrix, Unique Levels) and double-click event delegation. |
+| **Session Controller** | [`session_controller.js`](file:///E:/JE/src/web/js/session_controller.js) | Excel import/refresh, active sheet switching, dirty tracking, template syncing, and pending action queue. |
+| **Settings Controller** | [`settings_controller.js`](file:///E:/JE/src/web/js/settings_controller.js) | Delimiter and default data type configuration dialog. |
 
 ---
 
-## 2. Eel RPC Bridge ([`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py))
+## 2. Backend Controllers & RPC Router (`src/app/`)
 
-Exposes Python backend services to JavaScript via `@eel.expose`. Injects active `SettingsService` configuration into domain model method calls.
+| Controller | File | Responsibilities |
+|---|---|---|
+| **Eel RPC Bridge Router** | [`eel_bridge.py`](file:///E:/JE/src/app/eel_bridge.py) | Exposes 13 public `@eel.expose` endpoints, delegating cleanly to `SessionManager`, `NodeController`, `SettingsService`, and `FileDialogService`. |
+| **Session Manager** | [`session_manager.py`](file:///E:/JE/src/app/session_manager.py) | Manages multi-sheet session forests, active sheet tracking, DRY row 1 parsing, and multi-sheet template export. |
+| **Node Controller** | [`node_controller.py`](file:///E:/JE/src/app/node_controller.py) | Node CRUD operations (`add_node`, `update_node`, `delete_node`, `move_node`) on workspace forests with cycle checks. |
 
-### Exposed RPC Endpoints:
+---
+
+## 3. Exposed RPC Endpoints
 
 | Endpoint | Parameters | Returns (DTO) | Description |
 |---|---|---|---|
@@ -44,17 +48,3 @@ Exposes Python backend services to JavaScript via `@eel.expose`. Injects active 
 | `save_template_sync(...)`| `output_path: Optional[str]` | `{ success, template_path, total_columns, modified_sheets }` | Exports all modified sheets simultaneously to a clean template file with cell `number_format` formatting. |
 | `open_file_dialog()` | *none* | `{ success, file_path, canceled }` | Spawns native OS open file picker for `.xlsx` files. |
 | `save_file_dialog(...)`| `default_name: Optional[str]` | `{ success, file_path, canceled }` | Spawns native OS save file picker with `Шаблон_` prefix. |
-
----
-
-## 3. Application Services
-
-### 3.1 [`SettingsService`](file:///E:/JE/src/hierarchy_lib/services/settings_service.py)
-* Manages configuration (`delimiter`, `default_data_type`).
-* Atomic disk persistence to `settings.json`.
-
-### 3.2 [`HeaderService`](file:///E:/JE/src/hierarchy_lib/services/header_service.py)
-* Normalizes, trims, and deduplicates raw header string lists while strictly preserving original Excel column sequence (FIFO).
-
-### 3.3 [`FileDialogService`](file:///E:/JE/src/hierarchy_lib/services/dialog_service.py)
-* Encapsulates native desktop file dialogs with hidden Tkinter root window lifecycle management.

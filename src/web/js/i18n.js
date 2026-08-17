@@ -99,6 +99,11 @@ const I18N_DICTIONARIES = {
         modal_btn_cancel: "Скасувати",
         modal_btn_create: "Створити вузол",
         modal_btn_save: "Зберегти зміни",
+        modal_create_btn: "Створити вузол",
+        modal_create_child_title: "Створити дочірній вузол",
+        modal_edit_btn: "Зберегти зміни",
+        modal_edit_title: "Редагувати вузол",
+        confirm_delete_node: "Ви впевнені, що хочете видалити цей вузол та всі його дочірні елементи?",
 
         // Modals: Unsaved Changes
         unsaved_title: "Незбережені зміни",
@@ -178,6 +183,11 @@ const I18N_DICTIONARIES = {
         toast_node_deleted: "Вузол видалено.",
         toast_header_added: "Колонку «{name}» [{type}] додано до структури.",
         toast_name_empty: "Назва вузла не може бути порожньою.",
+        toast_name_required: "Назва вузла не може бути порожньою.",
+        toast_node_renamed: "Вузол успішно перейменовано.",
+        toast_imported_file: "Файл «{file}» успішно імпортовано.",
+        toast_refresh_error: "Помилка оновлення сесії: {error}",
+        toast_refresh_success: "Сесію успішно оновлено з диска.",
         toast_move_rejected: "Переміщення відхилено бекендом.",
         toast_tree_empty_export: "Дерево порожнє. Додайте вузли перед експортом.",
         toast_save_cancelled: "Збереження скасовано. Залишено поточну робочу область.",
@@ -277,6 +287,11 @@ const I18N_DICTIONARIES = {
         modal_btn_cancel: "Cancel",
         modal_btn_create: "Create Node",
         modal_btn_save: "Save Changes",
+        modal_create_btn: "Create Node",
+        modal_create_child_title: "Create Child Node",
+        modal_edit_btn: "Save Changes",
+        modal_edit_title: "Edit Node",
+        confirm_delete_node: "Are you sure you want to delete this node and all its children?",
 
         // Modals: Unsaved Changes
         unsaved_title: "Unsaved Changes",
@@ -356,6 +371,11 @@ const I18N_DICTIONARIES = {
         toast_node_deleted: "Node deleted.",
         toast_header_added: "Added header node '{name}' [{type}] into tree structure.",
         toast_name_empty: "Node name cannot be empty.",
+        toast_name_required: "Node name cannot be empty.",
+        toast_node_renamed: "Node renamed successfully.",
+        toast_imported_file: "File \"{file}\" successfully imported.",
+        toast_refresh_error: "Session refresh error: {error}",
+        toast_refresh_success: "Session successfully refreshed from disk.",
         toast_move_rejected: "Move rejected by backend.",
         toast_tree_empty_export: "Tree is empty. Add nodes before exporting.",
         toast_save_cancelled: "Save cancelled. Remained on active workspace.",
@@ -404,10 +424,10 @@ const I18n = {
 
         if (params && typeof params === 'object') {
             Object.entries(params).forEach(([paramKey, paramVal]) => {
-                text = text.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramVal));
+                text = text.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramVal ?? ''));
             });
         }
-        return text;
+        return text.replace(/\{[a-zA-Z0-9_]+\}/g, '').trim();
     },
 
     getTypeLabel(type) {
